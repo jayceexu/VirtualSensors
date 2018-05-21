@@ -1,5 +1,6 @@
 package bach.jianxu.watchsense;
 
+import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
 import android.graphics.Color;
@@ -8,20 +9,36 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
-import android.util.FloatMath;
+import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-public class SensorFragment extends Fragment implements SensorEventListener {
-    private static final String TAG = "Sensor";
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.MessageEvent;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.NodeApi;
+import com.google.android.gms.wearable.Wearable;
+
+public class SensorFragment extends Fragment implements
+        SensorEventListener,
+        DataApi.DataListener,
+        MessageApi.MessageListener,
+        GoogleApiClient.ConnectionCallbacks {
 
     private static final float SHAKE_THRESHOLD = 1.1f;
     private static final int SHAKE_WAIT_TIME_MS = 250;
     private static final float ROTATION_THRESHOLD = 2.0f;
     private static final int ROTATION_WAIT_TIME_MS = 100;
+
+    private GoogleApiClient mGoogleApiClient;
+    private static final String TAG = "WATCH";
+    private static final String WEAR_MESSAGE_PATH = "/message";
 
     private View mView;
     private TextView mAccelero;
@@ -32,20 +49,27 @@ public class SensorFragment extends Fragment implements SensorEventListener {
     private long mShakeTime = 0;
     private long mRotationTime = 0;
 
-    public static SensorFragment newInstance(int sensorType) {
+    private static Activity mAct;
+    private long cnt = 1;
+    public static SensorFragment newInstance(int sensorType, Activity ap) {
         SensorFragment f = new SensorFragment();
 
         // Supply sensorType as an argument
         Bundle args = new Bundle();
         args.putInt("sensorType", sensorType);
         f.setArguments(args);
-
+        mAct = ap;
         return f;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mGoogleApiClient = new GoogleApiClient.Builder(mAct)
+                .addApi(Wearable.API)
+                .addConnectionCallbacks(this)
+                .build();
+        mGoogleApiClient.connect();
 
         Bundle args = getArguments();
         if(args != null) {
@@ -87,7 +111,7 @@ public class SensorFragment extends Fragment implements SensorEventListener {
         float gY = event.values[1] / SensorManager.GRAVITY_EARTH;
         float gZ = event.values[2] / SensorManager.GRAVITY_EARTH;
 
-        Log.i(TAG, "Getting data: x:" + gX + ", y:" + gY + ", z:" + gZ);
+        //Log.i(TAG, "Getting data: x:" + gX + ", y:" + gY + ", z:" + gZ);
 
         // If sensor is unreliable, then just return
 //        if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE)
@@ -121,6 +145,9 @@ public class SensorFragment extends Fragment implements SensorEventListener {
             );
         }
 
+        if (cnt++ % 100 == 0) {
+            sendMessage(WEAR_MESSAGE_PATH, mAccelero.getText().toString());
+        }
 
 //        if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
 //            detectShake(event);
@@ -183,5 +210,41 @@ public class SensorFragment extends Fragment implements SensorEventListener {
                 mView.setBackgroundColor(Color.BLACK);
             }
         }
+    }
+
+    private void sendMessage(final String path, final String text) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
+
+                for (Node node: nodes.getNodes()) {
+                    MessageApi.SendMessageResult result = Wearable.MessageApi.sendMessage(
+                            mGoogleApiClient, node.getId(), path, text.getBytes() ).await();
+                }
+            }
+        }).start();
+    }
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        Wearable.MessageApi.addListener(mGoogleApiClient, this);
+
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
+    @Override
+    public void onDataChanged(DataEventBuffer dataEventBuffer) {
+
+    }
+
+    @Override
+    public void onMessageReceived(MessageEvent messageEvent) {
+        Log.i(TAG,"Received message.~~~~~~~~~~~~~~~~~~~~~~~" + new String(messageEvent.getData()));
+
     }
 }

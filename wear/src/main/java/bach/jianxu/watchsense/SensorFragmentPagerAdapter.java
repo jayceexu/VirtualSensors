@@ -1,5 +1,6 @@
 package bach.jianxu.watchsense;
 
+import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.hardware.Sensor;
@@ -12,13 +13,15 @@ public class SensorFragmentPagerAdapter extends FragmentGridPagerAdapter {
             Sensor.TYPE_GYROSCOPE
     };
 
-    public SensorFragmentPagerAdapter(FragmentManager fm) {
+    private Activity mAct;
+    public SensorFragmentPagerAdapter(FragmentManager fm, Activity ap) {
         super(fm);
+        mAct = ap;
     }
 
     @Override
     public Fragment getFragment(int row, int column) {
-        return SensorFragment.newInstance(sensorTypes[column]);
+        return SensorFragment.newInstance(sensorTypes[column], mAct);
     }
 
     @Override
