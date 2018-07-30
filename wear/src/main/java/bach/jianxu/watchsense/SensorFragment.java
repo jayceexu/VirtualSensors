@@ -9,11 +9,13 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -24,6 +26,13 @@ import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.net.Socket;
 
 public class SensorFragment extends Fragment implements
         SensorEventListener,
@@ -37,7 +46,7 @@ public class SensorFragment extends Fragment implements
     private static final int ROTATION_WAIT_TIME_MS = 100;
 
     private GoogleApiClient mGoogleApiClient;
-    private static final String TAG = "WATCH";
+    private static final String TAG = "WatchSense";
     private static final String WEAR_MESSAGE_PATH = "/message";
 
     private View mView;
@@ -111,6 +120,7 @@ public class SensorFragment extends Fragment implements
         float gY = event.values[1] / SensorManager.GRAVITY_EARTH;
         float gZ = event.values[2] / SensorManager.GRAVITY_EARTH;
 
+        String msg = "";
         //Log.i(TAG, "Getting data: x:" + gX + ", y:" + gY + ", z:" + gZ);
 
         // If sensor is unreliable, then just return
@@ -131,6 +141,7 @@ public class SensorFragment extends Fragment implements
                     "\u00E2z: "+ String.valueOf(az)+"\n"+
                     "\u00E2Net: "+ String.valueOf(af)
             );
+            //msg += String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az);
 
         } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             // assign directions
@@ -143,10 +154,11 @@ public class SensorFragment extends Fragment implements
                     "\u03A9y: "+ String.valueOf(gy/gf)+"\n"+
                     "\u03A9z: "+ String.valueOf(gz/gf)+"\n"
             );
+            msg += String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz);
         }
 
-        if (cnt++ % 100 == 0) {
-            sendMessage(WEAR_MESSAGE_PATH, mAccelero.getText().toString());
+        if (cnt++ % 2 == 0 && msg != "") {
+            sendMessage(WEAR_MESSAGE_PATH, msg);
         }
 
 //        if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
