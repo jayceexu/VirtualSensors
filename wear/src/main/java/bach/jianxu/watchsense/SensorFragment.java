@@ -141,7 +141,7 @@ public class SensorFragment extends Fragment implements
                     "\u00E2z: "+ String.valueOf(az)+"\n"+
                     "\u00E2Net: "+ String.valueOf(af)
             );
-            //msg += String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az);
+            msg += String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",";
 
         } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             // assign directions
@@ -154,11 +154,12 @@ public class SensorFragment extends Fragment implements
                     "\u03A9y: "+ String.valueOf(gy/gf)+"\n"+
                     "\u03A9z: "+ String.valueOf(gz/gf)+"\n"
             );
-            msg += String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz);
+            //msg += String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz) + ",";
         }
 
-        if (cnt++ % 2 == 0 && msg != "") {
+        if (cnt++ % 4 == 0 && msg != "") {
             sendMessage(WEAR_MESSAGE_PATH, msg);
+            //sendMessage(msg);
         }
 
 //        if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
@@ -259,4 +260,49 @@ public class SensorFragment extends Fragment implements
         Log.i(TAG,"Received message.~~~~~~~~~~~~~~~~~~~~~~~" + new String(messageEvent.getData()));
 
     }
+
+
+    // Alternative way to create socket for TCP client
+    private void sendMessage(final String msg) {
+
+        final Handler handler = new Handler();
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                try {
+                    //Replace below IP with the IP of that device in which server socket open.
+                    //If you change port then change the port number in the server side code also.
+                    Socket s = new Socket("192.168.1.3", 14400);
+
+                    OutputStream out = s.getOutputStream();
+
+                    PrintWriter output = new PrintWriter(out);
+
+                    output.println(msg);
+                    output.flush();
+                    BufferedReader input = new BufferedReader(new InputStreamReader(s.getInputStream()));
+                    final String st = input.readLine();
+
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            Log.i(TAG, "Msg from Server : " + st);
+                        }
+                    });
+
+                    output.close();
+                    out.close();
+                    s.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        thread.start();
+    }
+
+
 }

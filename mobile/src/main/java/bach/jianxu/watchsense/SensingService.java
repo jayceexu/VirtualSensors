@@ -13,6 +13,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -28,6 +29,12 @@ import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.util.StringTokenizer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
@@ -37,8 +44,7 @@ public class SensingService extends Service implements
         DataApi.DataListener,
         GoogleApiClient.ConnectionCallbacks,
         MessageApi.MessageListener,
-        SensorEventInjector,
-        SensorEventListener {
+        SensorEventInjector {
 
     final static String TAG = "WatchSense";
     private GoogleApiClient mGoogleApiClient;
@@ -65,12 +71,6 @@ public class SensingService extends Service implements
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mSensorManager.registerInjector(Sensor.TYPE_ACCELEROMETER, this);
 
-        //Thread m = new AThread();
-        //m.start();
-        new AThread().execute();
-
-//       new AExecutor().execute(null);
-
         Log.i(TAG, "Creating..........");
         super.onCreate();
     }
@@ -80,18 +80,6 @@ public class SensingService extends Service implements
     public IBinder onBind(Intent intent) {
         return null;
     }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int i) {
-
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent sensorEvent) {
-
-    }
-
-
 
     @Override
     public void onSensorReceived(SensorEvent sensorEvent) {
@@ -142,19 +130,104 @@ public class SensingService extends Service implements
 
     }
 
-    private void sendMessage(final String path, final String text) {
-        new Thread(new Runnable() {
+
+    // Alternative way to create socket for TCP client
+    private void sendMessage(final String msg) {
+
+        Thread thread = new Thread(new Runnable() {
             @Override
             public void run() {
-                NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
 
-                for (Node node: nodes.getNodes()) {
-                    MessageApi.SendMessageResult result = Wearable.MessageApi.sendMessage(
-                            mGoogleApiClient, node.getId(), path, text.getBytes() ).await();
+                try {
+                    //Replace below IP with the IP of that device in which server socket open.
+                    //If you change port then change the port number in the server side code also.
+                    Socket s = new Socket("127.0.0.1", 14400);
+
+                    OutputStream out = s.getOutputStream();
+
+                    PrintWriter output = new PrintWriter(out);
+
+                    output.println(msg);
+                    output.flush();
+
+                    output.close();
+                    out.close();
+                    s.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
-        }).start();
+        });
+
+        thread.start();
     }
+
+    @Override
+    public void onMessageReceived(MessageEvent messageEvent) {
+        Log.i(TAG, "onMessageReceived msg: " + new String(messageEvent.getData()));
+        // Receiving the motion sensor data
+        String message = new String(messageEvent.getData());
+        sendMessage(message);
+//        synchronized (mQueue) {
+//            mQueue.add(message);
+//            Log.i(TAG, "Adding msg to the queue");
+//        }
+    }
+
+
+    public class AThread extends AsyncTask<Void, Void, Void> {
+
+        private Socket mSocket;
+        private PrintWriter mOutput;
+        private OutputStream mOut;
+
+        AThread() {
+
+        }
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            Log.i(TAG, "Starting AThread....");
+            try {
+                //Replace below IP with the IP of that device in which server socket open.
+                //If you change port then change the port number in the server side code also.
+                Log.i(TAG, "Message redirecting Thread starting......");
+                mSocket = new Socket("127.0.0.1", 14400);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            while (true) {
+                try {
+//                    Thread.sleep(1000);
+//                    Log.i(TAG, "SLEEPING EVERY SECOND");
+                    synchronized (mQueue) {
+                        if (!mQueue.isEmpty()) {
+                            Log.d(TAG, "The queue is empty....");
+                            String msg = mQueue.take();
+                            Log.d(TAG, "poping up the message " + msg);
+
+                            mSocket = new Socket("127.0.0.1", 14400);
+                            mOut = mSocket.getOutputStream();
+                            mOutput = new PrintWriter(mOut);
+
+                            mOutput.println(msg);
+                            mOutput.flush();
+
+                            mOutput.close();
+                            mOut.close();
+                            mSocket.close();
+                        }
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
 
     @Override
     public void onConnected(Bundle bundle) {
@@ -169,26 +242,6 @@ public class SensingService extends Service implements
 
     public void onDataChanged(DataEventBuffer dataEvents) {
 
-    }
-
-    @Override
-    public void onMessageReceived(MessageEvent messageEvent) {
-        Log.i(TAG, "onMessageReceived msg: " + new String(messageEvent.getData()));
-        // Receiving the motion sensor data
-        String message = new String(messageEvent.getData());
-
-        synchronized (mQueue) {
-            while (mQueue.size() == MAX_SIZE) {
-                Log.d(TAG, "queue is full, waiting....");
-                try {
-                    mQueue.wait();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-            mQueue.add(message);
-            mQueue.notifyAll();
-        }
     }
 
     public class AExecutor implements Executor, SensorEventInjector {
@@ -243,82 +296,4 @@ public class SensingService extends Service implements
             }
         }
     }
-
-
-    public class AThread extends AsyncTask<Void, Void, Void> implements
-            DataApi.DataListener,
-            GoogleApiClient.ConnectionCallbacks,
-            MessageApi.MessageListener {
-
-        AThread() {
-            mGoogleApiClient = new GoogleApiClient.Builder(SensingService.this)
-                    .addApi(Wearable.API)
-                    .addConnectionCallbacks(this)
-                    .build();
-            mGoogleApiClient.connect();
-        }
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-            Log.i(TAG, "Starting AThread....");
-
-//            while (true) {
-//                try {
-//                    Thread.sleep(2000);
-//
-//                    Log.i(TAG, "Starting AThread....");
-//
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                }
-//            }
-
-            return null;
-        }
-
-        @Override
-        public void onMessageReceived(MessageEvent messageEvent) {
-            // Receiving the motion sensor data
-            String message = new String(messageEvent.getData());
-            try {
-                mQueue.put(message);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            Log.i(TAG, "onMessageReceived msg: " + new String(messageEvent.getData())
-                        + ", queue size: " + mQueue.size());
-
-        }
-
-        @Override
-        public void onDataChanged(DataEventBuffer dataEventBuffer) {
-
-        }
-
-        @Override
-        public void onConnected(Bundle bundle) {
-            Log.d(TAG, "onConnected....");
-            Wearable.MessageApi.addListener(mGoogleApiClient, this);
-        }
-
-        @Override
-        public void onConnectionSuspended(int i) {
-            Log.d("Connection Suspended", "Connection suspended");
-        }
-
-        //        @Override
-//        public void run() {
-//            while(true) {
-//                //Log.i(TAG, "Running AThread....");
-//                if (mHandler.hasMessages(1)) {
-//                    Log.i(TAG, "We received this message......");
-//
-//                }
-//            }
-//
-//        }
-
-
-    }
-
 }
