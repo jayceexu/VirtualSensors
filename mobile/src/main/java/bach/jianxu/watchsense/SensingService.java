@@ -37,8 +37,10 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.StringTokenizer;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class SensingService extends Service implements
         DataApi.DataListener,
@@ -50,14 +52,60 @@ public class SensingService extends Service implements
     private GoogleApiClient mGoogleApiClient;
     private static SensorManager mSensorManager;
     //private Queue<String> mQueue;
-    private BlockingQueue<String> mQueue = new LinkedBlockingQueue<>(MAX_SIZE);
+    private LinkedBlockingQueue<String> mQueue = new LinkedBlockingQueue<>(100);
 
     private static final String MESSAGE = "/message";
     private static final String SEPARATOR = "||";
     private static int id = 1;
     private static int MAX_SIZE = 50000;
-
     private static Sensor mSensor;
+
+    private Socket mSocket;
+    private OutputStream mOutputStream;
+    private PrintWriter mPrintWriter;
+
+    private boolean empty;
+
+    // Should use Thread instead of AsyncTask as this is a long turn workload
+    private Thread mThread = new Thread(new Runnable() {
+        private Socket mSocket;
+        private PrintWriter mOutput;
+        private OutputStream mOut;
+        private ConcurrentLinkedQueue<String> mLocal = new ConcurrentLinkedQueue<>();
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    if (!empty) {
+                        mQueue.drainTo(mLocal);
+                        empty = true;
+                        Log.d(TAG, "Drain to local queue, size: " + mLocal.size());
+                        continue;
+                    }
+                    String msg = mLocal.poll();
+                    if (msg != null) {
+                        Log.d(TAG, "poping up the message " + msg + ", size:" + mLocal.size());
+
+                        mSocket = new Socket("127.0.0.1", 14400);
+                        mOut = mSocket.getOutputStream();
+                        mOutput = new PrintWriter(mOut);
+
+                        mOutput.println(msg);
+                        mOutput.flush();
+
+                        mOutput.close();
+                        mOut.close();
+                        mSocket.close();
+                    }
+
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    });
+
     @SuppressLint("HandlerLeak")
     @Override
     public void onCreate() {
@@ -70,7 +118,10 @@ public class SensingService extends Service implements
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mSensorManager.registerInjector(Sensor.TYPE_ACCELEROMETER, this);
+        empty = true;
 
+        //new AThread().execute();
+        mThread.start();
         Log.i(TAG, "Creating..........");
         super.onCreate();
     }
@@ -104,7 +155,7 @@ public class SensingService extends Service implements
             StringTokenizer tokens;
             String msg = "";
             try {
-                msg = mQueue.take();
+                //msg = mQueue.take();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -167,67 +218,21 @@ public class SensingService extends Service implements
         Log.i(TAG, "onMessageReceived msg: " + new String(messageEvent.getData()));
         // Receiving the motion sensor data
         String message = new String(messageEvent.getData());
-        sendMessage(message);
-//        synchronized (mQueue) {
-//            mQueue.add(message);
-//            Log.i(TAG, "Adding msg to the queue");
-//        }
-    }
+        //sendMessage(message);
+        //sendMessage2(message);
 
-
-    public class AThread extends AsyncTask<Void, Void, Void> {
-
-        private Socket mSocket;
-        private PrintWriter mOutput;
-        private OutputStream mOut;
-
-        AThread() {
-
-        }
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-            Log.i(TAG, "Starting AThread....");
-            try {
-                //Replace below IP with the IP of that device in which server socket open.
-                //If you change port then change the port number in the server side code also.
-                Log.i(TAG, "Message redirecting Thread starting......");
-                mSocket = new Socket("127.0.0.1", 14400);
-
-            } catch (IOException e) {
-                e.printStackTrace();
+        try {
+            if (empty) {
+                mQueue.put(message);
+                Log.i(TAG, "Adding msg to the queue, queue size: " + mQueue.size());
             }
-
-            while (true) {
-                try {
-//                    Thread.sleep(1000);
-//                    Log.i(TAG, "SLEEPING EVERY SECOND");
-                    synchronized (mQueue) {
-                        if (!mQueue.isEmpty()) {
-                            Log.d(TAG, "The queue is empty....");
-                            String msg = mQueue.take();
-                            Log.d(TAG, "poping up the message " + msg);
-
-                            mSocket = new Socket("127.0.0.1", 14400);
-                            mOut = mSocket.getOutputStream();
-                            mOutput = new PrintWriter(mOut);
-
-                            mOutput.println(msg);
-                            mOutput.flush();
-
-                            mOutput.close();
-                            mOut.close();
-                            mSocket.close();
-                        }
-                    }
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+            if (mQueue.size() >= 2) {
+                empty = false;
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
-
 
     @Override
     public void onConnected(Bundle bundle) {
