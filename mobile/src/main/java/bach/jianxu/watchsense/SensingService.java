@@ -51,7 +51,6 @@ public class SensingService extends Service implements
     final static String TAG = "WatchSense";
     private GoogleApiClient mGoogleApiClient;
     private static SensorManager mSensorManager;
-    //private Queue<String> mQueue;
     private LinkedBlockingQueue<String> mQueue = new LinkedBlockingQueue<>(100);
 
     private static final String MESSAGE = "/message";
@@ -75,7 +74,6 @@ public class SensingService extends Service implements
         @Override
         public void run() {
             while (true) {
-                try {
                     if (!empty) {
                         mQueue.drainTo(mLocal);
                         empty = true;
@@ -83,25 +81,36 @@ public class SensingService extends Service implements
                         continue;
                     }
                     String msg = mLocal.poll();
-                    if (msg != null) {
-                        Log.d(TAG, "poping up the message " + msg + ", size:" + mLocal.size());
-
-                        mSocket = new Socket("127.0.0.1", 14400);
-                        mOut = mSocket.getOutputStream();
-                        mOutput = new PrintWriter(mOut);
-
-                        mOutput.println(msg);
-                        mOutput.flush();
-
-                        mOutput.close();
-                        mOut.close();
-                        mSocket.close();
+                    if (msg == null)
+                        continue;
+                    String [] str = msg.split("@");
+                    Log.d(TAG, "msg has been split into " + str.length + " pieces");
+                    for (int i = 0; i < str.length; ++i) {
+                        Log.d(TAG, "msg is " + str[i]);
+                        sendMsgToLocalServer(str[i]);
                     }
+            }
+        }
 
+        private void sendMsgToLocalServer(String msg) {
+            try {
 
-                } catch (Exception e) {
-                    e.printStackTrace();
+                if (msg != null) {
+                    Log.d("XUJAY_TCP", "poping up the message " + msg + ", size:" + mLocal.size());
+
+                    mSocket = new Socket("127.0.0.1", 14400);
+                    mOut = mSocket.getOutputStream();
+                    mOutput = new PrintWriter(mOut);
+
+                    mOutput.println(msg);
+                    mOutput.flush();
+
+                    mOutput.close();
+                    mOut.close();
+                    mSocket.close();
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     });
@@ -224,9 +233,9 @@ public class SensingService extends Service implements
         try {
             if (empty) {
                 mQueue.put(message);
-                Log.i(TAG, "Adding msg to the queue, queue size: " + mQueue.size());
+                Log.i("XUJAY_TCP", "Adding msg to the queue, queue size: " + mQueue.size());
             }
-            if (mQueue.size() >= 2) {
+            if (mQueue.size() >= 1) {
                 empty = false;
             }
         } catch (Exception e) {

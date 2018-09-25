@@ -33,6 +33,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class SensorFragment extends Fragment implements
         SensorEventListener,
@@ -57,9 +59,13 @@ public class SensorFragment extends Fragment implements
     private int mSensorType;
     private long mShakeTime = 0;
     private long mRotationTime = 0;
+    private LinkedBlockingQueue<String> mQueue = new LinkedBlockingQueue<>(100);
 
     private static Activity mAct;
+    private boolean mEmpty;
     private long cnt = 1;
+    private String mMessage = "";
+
     public static SensorFragment newInstance(int sensorType, Activity ap) {
         SensorFragment f = new SensorFragment();
 
@@ -70,6 +76,41 @@ public class SensorFragment extends Fragment implements
         mAct = ap;
         return f;
     }
+
+    // Should use Thread instead of AsyncTask as this is a long turn workload
+    private Thread mThread = new Thread(new Runnable() {
+        private Socket mSocket;
+        private PrintWriter mOutput;
+        private OutputStream mOut;
+        private ConcurrentLinkedQueue<String> mLocal = new ConcurrentLinkedQueue<>();
+        @Override
+        public void run() {
+            while (true) {
+                try {
+
+                    if (!mEmpty) {
+                        mQueue.drainTo(mLocal);
+                        mEmpty = true;
+                        continue;
+                    }
+                    Log.d(TAG, "Drain to local queue, size: " + mLocal.size());
+
+                    String msg = mLocal.poll();
+                    if (msg == null)
+                        continue;
+                    NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
+
+                    for (Node node: nodes.getNodes()) {
+                        MessageApi.SendMessageResult result = Wearable.MessageApi.sendMessage(
+                                mGoogleApiClient, node.getId(), WEAR_MESSAGE_PATH, msg.getBytes() ).await();
+                        Log.d("XUJAY_TCP", "sending msg in batch from another thread.");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    });
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -84,9 +125,11 @@ public class SensorFragment extends Fragment implements
         if(args != null) {
             mSensorType = args.getInt("sensorType");
         }
-
+        mEmpty = true;
         mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(mSensorType);
+
+        //mThread.start();
     }
 
     @Override
@@ -123,16 +166,11 @@ public class SensorFragment extends Fragment implements
         String msg = "";
         //Log.i(TAG, "Getting data: x:" + gX + ", y:" + gY + ", z:" + gZ);
 
-        // If sensor is unreliable, then just return
-//        if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE)
-//        {
-//            Log.w(TAG, "Skipping because of the accuracy");
-//            return;
-//        }
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             // assign directions
             float ax = event.values[0];
             float ay = event.values[1];
+            ay = ay  + (float)8.0;
             float az = event.values[2];
             float af = (float) Math.sqrt(Math.pow(ax, 2)+ Math.pow(ay, 2)+ Math.pow(az, 2));
             mAccelero.setText("\nAccelerometer :"+"\n"+
@@ -141,7 +179,7 @@ public class SensorFragment extends Fragment implements
                     "\u00E2z: "+ String.valueOf(az)+"\n"+
                     "\u00E2Net: "+ String.valueOf(af)
             );
-            msg += String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",";
+            msg += String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
 
         } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             // assign directions
@@ -157,10 +195,30 @@ public class SensorFragment extends Fragment implements
             //msg += String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz) + ",";
         }
 
-        if (cnt++ % 4 == 0 && msg != "") {
-            sendMessage(WEAR_MESSAGE_PATH, msg);
-            //sendMessage(msg);
+        if (msg == "")
+            return;
+
+        mMessage += msg;
+        if (cnt++ % 4 == 0) {
+            sendMessage(WEAR_MESSAGE_PATH, mMessage);
+            mMessage = "";
         }
+
+//        try {
+//
+//            if (mEmpty) {
+//                Log.i(TAG, "putting message into the queue...");
+//                mQueue.put(msg);
+//                if (mQueue.size() > 2)
+//                    mEmpty = false;
+//            } else {
+//                Log.i(TAG, "size is over 30...");
+//                //sendMessage(WEAR_MESSAGE_PATH, msg);
+//
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
 
 //        if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
 //            detectShake(event);
