@@ -87,17 +87,9 @@ public class SensorFragment extends Fragment implements
         public void run() {
             while (true) {
                 try {
-
-                    if (!mEmpty) {
-                        mQueue.drainTo(mLocal);
-                        mEmpty = true;
-                        continue;
-                    }
-                    Log.d(TAG, "Drain to local queue, size: " + mLocal.size());
-
-                    String msg = mLocal.poll();
-                    if (msg == null)
-                        continue;
+                    Thread.sleep(2000);
+                    Log.i(TAG, "heart beating....");
+                    String msg = "heart beat";
                     NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
 
                     for (Node node: nodes.getNodes()) {
@@ -129,7 +121,7 @@ public class SensorFragment extends Fragment implements
         mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(mSensorType);
 
-        //mThread.start();
+        mThread.start();
     }
 
     @Override
@@ -316,6 +308,10 @@ public class SensorFragment extends Fragment implements
     @Override
     public void onMessageReceived(MessageEvent messageEvent) {
         Log.i(TAG,"Received message.~~~~~~~~~~~~~~~~~~~~~~~" + new String(messageEvent.getData()));
+        String msg = new String(messageEvent.getData());
+        if (msg.contains("heart")) {
+
+        }
 
     }
 

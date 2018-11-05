@@ -83,6 +83,11 @@ public class SensingService extends Service implements
                     String msg = mLocal.poll();
                     if (msg == null)
                         continue;
+                    if (msg.contains("heart")) {
+                        sendMessage(MESSAGE, "echo back of heart beats");
+                        Log.i(TAG, "Sending echo messages");
+                        continue;
+                    }
                     String [] str = msg.split("@");
                     Log.d(TAG, "msg has been split into " + str.length + " pieces");
                     for (int i = 0; i < str.length; ++i) {
@@ -220,6 +225,20 @@ public class SensingService extends Service implements
         });
 
         thread.start();
+    }
+
+    private void sendMessage(final String path, final String text) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await();
+
+                for (Node node: nodes.getNodes()) {
+                    MessageApi.SendMessageResult result = Wearable.MessageApi.sendMessage(
+                            mGoogleApiClient, node.getId(), path, text.getBytes() ).await();
+                }
+            }
+        }).start();
     }
 
     @Override
