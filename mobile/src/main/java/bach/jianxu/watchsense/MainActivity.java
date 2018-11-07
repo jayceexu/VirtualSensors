@@ -25,7 +25,6 @@ public class MainActivity extends AppCompatActivity {
 
     private static String TAG = "WatchSense";
     public static final int PERMISSIONS_REQUEST_CODE = 1;
-    private ArrayList<Metaprogram> metaprograms = new ArrayList<>();
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -34,71 +33,6 @@ public class MainActivity extends AppCompatActivity {
         Intent aint = new Intent(this, SensingService.class);
         startService(aint);
         checkPermissions();
-
-        try {
-            File SDCardRoot = Environment.getExternalStorageDirectory()
-                    .getAbsoluteFile();
-            File myDir = new File(SDCardRoot.getAbsolutePath() + "/temp/");
-            File file = new File(myDir, "config.xml");
-
-            InputStream is = new FileInputStream(file.getPath());
-
-            XmlPullParser parser = Xml.newPullParser();
-            parser.setInput(is, null);
-            int eventType = parser.getEventType();
-            String text = "";
-            while (eventType != XmlPullParser.END_DOCUMENT) {
-                String name = parser.getName();
-
-                switch (eventType) {
-                    case XmlPullParser.START_TAG:
-                        break;
-                    case XmlPullParser.TEXT:
-                        text = parser.getText();
-                        break;
-                    case XmlPullParser.END_TAG:
-                        if (name.equalsIgnoreCase("appname")) {
-                            Metaprogram metaprogram = new Metaprogram();
-                            metaprogram.app_name = text;
-                            metaprograms.add(metaprogram);
-
-                        } else if (name.equalsIgnoreCase("op")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.op = text;
-                        } else if (name.equalsIgnoreCase("sensor_type")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.sensors.add(text);
-                        } else if (name.equalsIgnoreCase("freq")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.freq.add(Integer.parseInt(text));
-                        } else if (name.equalsIgnoreCase("x-calibrate")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.xcal.add(Integer.parseInt(text));
-                        } else if (name.equalsIgnoreCase("y-calibrate")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            if (!text.equals(""))
-                                meta.ycal.add(Integer.parseInt(text));
-
-
-                        } else if (name.equalsIgnoreCase("z-calibrate")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            meta.zcal.add(Integer.parseInt(text));
-                        }
-                        break;
-
-                     default:
-                         break;
-
-                }
-                eventType = parser.next();
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "XML Pasing Excpetion = " + e);
-        }
-        for (Metaprogram meta: metaprograms) {
-            meta.dump();
-        }
 
     }
 

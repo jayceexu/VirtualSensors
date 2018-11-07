@@ -13,11 +13,13 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.util.Xml;
 
 
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -29,12 +31,18 @@ import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
 
+import org.xmlpull.v1.XmlPullParser;
+
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.StringTokenizer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -64,6 +72,8 @@ public class SensingService extends Service implements
     private PrintWriter mPrintWriter;
 
     private boolean empty;
+
+    public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
 
     // Should use Thread instead of AsyncTask as this is a long turn workload
     private Thread mThread = new Thread(new Runnable() {
@@ -136,6 +146,7 @@ public class SensingService extends Service implements
 
         //new AThread().execute();
         mThread.start();
+        loadMetaprogram();
         Log.i(TAG, "Creating..........");
         super.onCreate();
     }
@@ -275,6 +286,70 @@ public class SensingService extends Service implements
 
     public void onDataChanged(DataEventBuffer dataEvents) {
 
+    }
+
+    private void loadMetaprogram() {
+        try {
+            File SDCardRoot = Environment.getExternalStorageDirectory()
+                    .getAbsoluteFile();
+            File myDir = new File(SDCardRoot.getAbsolutePath() + "/temp/");
+            File file = new File(myDir, "config.xml");
+
+            InputStream is = new FileInputStream(file.getPath());
+
+            XmlPullParser parser = Xml.newPullParser();
+            parser.setInput(is, null);
+            int eventType = parser.getEventType();
+            String text = "";
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                String name = parser.getName();
+
+                switch (eventType) {
+                    case XmlPullParser.START_TAG:
+                        break;
+                    case XmlPullParser.TEXT:
+                        text = parser.getText();
+                        break;
+                    case XmlPullParser.END_TAG:
+                        if (name.equalsIgnoreCase("appname")) {
+                            Metaprogram metaprogram = new Metaprogram();
+                            metaprogram.app_name = text;
+                            metaprograms.add(metaprogram);
+
+                        } else if (name.equalsIgnoreCase("op")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
+                            meta.op = text;
+                        } else if (name.equalsIgnoreCase("sensor_type")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
+                            meta.sensors.add(text);
+                        } else if (name.equalsIgnoreCase("freq")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
+                            meta.freq.add(Integer.parseInt(text));
+                        } else if (name.equalsIgnoreCase("x-calibrate")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
+                            meta.xcal.add(Integer.parseInt(text));
+                        } else if (name.equalsIgnoreCase("y-calibrate")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
+                            meta.ycal.add(Integer.parseInt(text));
+                        } else if (name.equalsIgnoreCase("z-calibrate")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
+                            meta.zcal.add(Integer.parseInt(text));
+                        }
+                        break;
+
+                    default:
+                        break;
+
+                }
+                eventType = parser.next();
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "XML Pasing Excpetion = " + e);
+        }
+        for (Metaprogram meta: metaprograms) {
+            meta.dump();
+        }
     }
 
     public class AExecutor implements Executor, SensorEventInjector {
