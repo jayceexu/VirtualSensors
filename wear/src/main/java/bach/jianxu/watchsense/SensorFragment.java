@@ -171,7 +171,7 @@ public class SensorFragment extends Fragment implements
                     "\u00E2z: "+ String.valueOf(az)+"\n"+
                     "\u00E2Net: "+ String.valueOf(af)
             );
-            msg += String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            msg += "accel:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
 
         } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             // assign directions
@@ -184,10 +184,11 @@ public class SensorFragment extends Fragment implements
                     "\u03A9y: "+ String.valueOf(gy/gf)+"\n"+
                     "\u03A9z: "+ String.valueOf(gz/gf)+"\n"
             );
-            //msg += String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz) + ",";
+            // TODO: add this line to support gyro
+            //msg += "gyro:" + String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz) + ",@";
         }
 
-        if (msg == "")
+        if (msg.equalsIgnoreCase(""))
             return;
 
         mMessage += msg;

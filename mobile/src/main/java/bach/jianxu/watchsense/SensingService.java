@@ -112,9 +112,20 @@ public class SensingService extends Service implements
             String[] msgs = msg.split(",");
             if (msgs.length != 3)
                 return "";
-            double x = Double.parseDouble(msgs[0]) + meta.xcal.get(0);
-            double y = Double.parseDouble(msgs[1]) + meta.ycal.get(0);
-            double z = Double.parseDouble(msgs[2]) + meta.zcal.get(0);
+            String[] headers = msgs[0].split(":");
+            if (headers.length != 2)
+                return "";
+            String typeStr = headers[0];
+            int type = 0;
+            if (typeStr.equalsIgnoreCase("accel")) {
+                type = 0;
+            } else if (typeStr.equalsIgnoreCase("gyro")) {
+                type = 1;
+            }
+            
+            double x = Double.parseDouble(headers[1]) + meta.xcal.get(type);
+            double y = Double.parseDouble(msgs[1]) + meta.ycal.get(type);
+            double z = Double.parseDouble(msgs[2]) + meta.zcal.get(type);
             String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
             Log.i(TAG, "applyMetaprogram " + calibratedMsg);
             return calibratedMsg;
