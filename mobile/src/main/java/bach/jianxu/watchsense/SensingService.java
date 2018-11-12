@@ -102,9 +102,22 @@ public class SensingService extends Service implements
                     Log.d(TAG, "msg has been split into " + str.length + " pieces");
                     for (int i = 0; i < str.length; ++i) {
                         Log.d(TAG, "msg is " + str[i]);
-                        sendMsgToLocalServer(str[i]);
+                        String msg2 = applyMetaprogram(str[i], metaprograms.get(0));
+                        sendMsgToLocalServer(msg2);
                     }
             }
+        }
+
+        private String applyMetaprogram(String msg, Metaprogram meta) {
+            String[] msgs = msg.split(",");
+            if (msgs.length != 3)
+                return "";
+            double x = Double.parseDouble(msgs[0]) + meta.xcal.get(0);
+            double y = Double.parseDouble(msgs[1]) + meta.ycal.get(0);
+            double z = Double.parseDouble(msgs[2]) + meta.zcal.get(0);
+            String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
+            Log.i(TAG, "applyMetaprogram " + calibratedMsg);
+            return calibratedMsg;
         }
 
         private void sendMsgToLocalServer(String msg) {

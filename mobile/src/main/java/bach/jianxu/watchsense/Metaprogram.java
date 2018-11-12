@@ -21,7 +21,7 @@ public class Metaprogram {
         Log.d(TAG, "App name: " + app_name);
         Log.d(TAG, "op: " + op);
         for (int i = 0; i < sensors.size(); ++i) {
-            Log.d(TAG, "the " + (i+1) + "-th sensor " + sensors.get(i));
+            Log.d(TAG, "the " + i + "-th sensor " + sensors.get(i));
             Log.d(TAG, "frequent sampling: " + freq.get(i));
             Log.d(TAG, "X-calibrating: " + xcal.get(i));
             Log.d(TAG, "Y-calibrating: " + ycal.get(i));
