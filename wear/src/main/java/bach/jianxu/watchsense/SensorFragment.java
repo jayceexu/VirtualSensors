@@ -66,6 +66,9 @@ public class SensorFragment extends Fragment implements
     private long cnt = 1;
     private String mMessage = "";
 
+    private boolean sampleGyro = false;
+    private boolean sampleAccel = false;
+
     public static SensorFragment newInstance(int sensorType, Activity ap) {
         SensorFragment f = new SensorFragment();
 
@@ -158,7 +161,7 @@ public class SensorFragment extends Fragment implements
         String msg = "";
         //Log.i(TAG, "Getting data: x:" + gX + ", y:" + gY + ", z:" + gZ);
 
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER && sampleAccel) {
             // assign directions
             float ax = event.values[0];
             float ay = event.values[1];
@@ -173,7 +176,8 @@ public class SensorFragment extends Fragment implements
             );
             msg += "accel:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
 
-        } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+        }
+        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE && sampleGyro) {
             // assign directions
             float gx = event.values[0];
             float gy = event.values[1];
@@ -185,12 +189,10 @@ public class SensorFragment extends Fragment implements
                     "\u03A9z: "+ String.valueOf(gz/gf)+"\n"
             );
             // TODO: add this line to support gyro
-            //msg += "gyro:" + String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz) + ",@";
+            msg += "gyro:" + String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz) + ",@";
         }
-
         if (msg.equalsIgnoreCase(""))
             return;
-
         mMessage += msg;
         if (cnt++ % 4 == 0) {
             sendMessage(WEAR_MESSAGE_PATH, mMessage);
@@ -310,10 +312,8 @@ public class SensorFragment extends Fragment implements
     public void onMessageReceived(MessageEvent messageEvent) {
         Log.i(TAG,"Received message.~~~~~~~~~~~~~~~~~~~~~~~" + new String(messageEvent.getData()));
         String msg = new String(messageEvent.getData());
-        if (msg.contains("heart")) {
-
-        }
-
+        sampleGyro = msg.contains("gyro");
+        sampleAccel = msg.contains("accel");
     }
 
 

@@ -8,13 +8,9 @@ import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventInjector;
-import android.hardware.SensorEventListener;
-
 import android.hardware.SensorManager;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -32,23 +28,18 @@ import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
 
 import org.xmlpull.v1.XmlPullParser;
-
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 public class SensingService extends Service implements
         DataApi.DataListener,
@@ -94,8 +85,12 @@ public class SensingService extends Service implements
                     if (msg == null)
                         continue;
                     if (msg.contains("heart")) {
-                        sendMessage(MESSAGE, "echo back of heart beats");
-                        Log.i(TAG, "Sending echo messages");
+                        String configEcho = "Metaprogram config ";
+                        for (String m : metaprograms.get(0).sensors) {
+                            configEcho += m + ", ";
+                        }
+                        sendMessage(MESSAGE, "echo back of heart beats, " + configEcho);
+                        Log.i(TAG, "Sending echo messages with configs: " + configEcho);
                         continue;
                     }
                     String [] str = msg.split("@");
@@ -122,7 +117,7 @@ public class SensingService extends Service implements
             } else if (typeStr.equalsIgnoreCase("gyro")) {
                 type = 1;
             }
-            
+
             double x = Double.parseDouble(headers[1]) + meta.xcal.get(type);
             double y = Double.parseDouble(msgs[1]) + meta.ycal.get(type);
             double z = Double.parseDouble(msgs[2]) + meta.zcal.get(type);

@@ -30,6 +30,7 @@ public class MainActivity extends WearableActivity {
             }
         });
 
+
         // Enables Always-on
         setAmbientEnabled();
     }
