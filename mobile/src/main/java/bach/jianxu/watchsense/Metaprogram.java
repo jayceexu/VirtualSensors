@@ -2,27 +2,29 @@ package bach.jianxu.watchsense;
 
 import android.util.Log;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class Metaprogram {
     public static String TAG = "metaprogram";
     public String app_name;
     public String op;
     public ArrayList<String> sensors = new ArrayList<>();
-    public ArrayList<Integer> freq = new ArrayList<>();
-    public ArrayList<Integer> xcal = new ArrayList<>();
-    public ArrayList<Integer> ycal = new ArrayList<>();
-    public ArrayList<Integer> zcal = new ArrayList<>();
+    public HashMap<String, ArrayList<Integer>> data = new HashMap<>();
+    public HashMap<String, Integer> freqs = new HashMap<>();
 
     void dump() {
         Log.d(TAG, "Dumping meta-program......");
         Log.d(TAG, "App name: " + app_name);
         Log.d(TAG, "op: " + op);
-        for (int i = 0; i < sensors.size(); ++i) {
-            Log.d(TAG, "the " + i + "-th sensor " + sensors.get(i));
-            Log.d(TAG, "frequent sampling: " + freq.get(i));
-            Log.d(TAG, "X-calibrating: " + xcal.get(i));
-            Log.d(TAG, "Y-calibrating: " + ycal.get(i));
-            Log.d(TAG, "Z-calibrating: " + zcal.get(i));
+        Log.d(TAG, "Dumping meta-program......");
+        for (HashMap.Entry<String,  ArrayList<Integer>> entry : data.entrySet()) {
+            String key = entry.getKey();
+            ArrayList<Integer> values = entry.getValue();
+            Log.d(TAG, "the " + key + " sensor ");
+            Log.d(TAG, "frequent sampling: " + freqs.get(key));
+            Log.d(TAG, "X-calibrating: " + values.get(0));
+            Log.d(TAG, "Y-calibrating: " + values.get(1));
+            Log.d(TAG, "Z-calibrating: " + values.get(2));
         }
     }
 }

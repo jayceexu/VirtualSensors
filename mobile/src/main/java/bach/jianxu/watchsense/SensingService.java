@@ -105,22 +105,14 @@ public class SensingService extends Service implements
 
         private String applyMetaprogram(String msg, Metaprogram meta) {
             String[] msgs = msg.split(",");
-            if (msgs.length != 3)
-                return "";
+            if (msgs.length != 3) return "";
             String[] headers = msgs[0].split(":");
-            if (headers.length != 2)
-                return "";
-            String typeStr = headers[0];
-            int type = 0;
-            if (typeStr.equalsIgnoreCase("accel")) {
-                type = 0;
-            } else if (typeStr.equalsIgnoreCase("gyro")) {
-                type = 1;
-            }
+            if (headers.length != 2) return "";
 
-            double x = Double.parseDouble(headers[1]) + meta.xcal.get(type);
-            double y = Double.parseDouble(msgs[1]) + meta.ycal.get(type);
-            double z = Double.parseDouble(msgs[2]) + meta.zcal.get(type);
+            String typeStr = headers[0];
+            double x = Double.parseDouble(headers[1]) + meta.data.get(typeStr).get(0);
+            double y = Double.parseDouble(msgs[1]) + meta.data.get(typeStr).get(1);
+            double z = Double.parseDouble(msgs[2]) + meta.data.get(typeStr).get(2);
             String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
             Log.i(TAG, "applyMetaprogram " + calibratedMsg);
             return calibratedMsg;
@@ -320,9 +312,9 @@ public class SensingService extends Service implements
             parser.setInput(is, null);
             int eventType = parser.getEventType();
             String text = "";
+            String lastSensor = "";
             while (eventType != XmlPullParser.END_DOCUMENT) {
                 String name = parser.getName();
-
                 switch (eventType) {
                     case XmlPullParser.START_TAG:
                         break;
@@ -334,31 +326,35 @@ public class SensingService extends Service implements
                             Metaprogram metaprogram = new Metaprogram();
                             metaprogram.app_name = text;
                             metaprograms.add(metaprogram);
-
                         } else if (name.equalsIgnoreCase("op")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
                             meta.op = text;
+
                         } else if (name.equalsIgnoreCase("sensor_type")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
                             meta.sensors.add(text);
+                            lastSensor = text;
+                            meta.data.put(lastSensor, new ArrayList<Integer>());
+
                         } else if (name.equalsIgnoreCase("freq")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.freq.add(Integer.parseInt(text));
+                            meta.freqs.put(lastSensor, Integer.parseInt(text));
+
                         } else if (name.equalsIgnoreCase("x-calibrate")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.xcal.add(Integer.parseInt(text));
+                            meta.data.get(lastSensor).add(0, Integer.parseInt(text));
+
                         } else if (name.equalsIgnoreCase("y-calibrate")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            meta.ycal.add(Integer.parseInt(text));
+                            meta.data.get(lastSensor).add(1, Integer.parseInt(text));
+
                         } else if (name.equalsIgnoreCase("z-calibrate")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            meta.zcal.add(Integer.parseInt(text));
+                            meta.data.get(lastSensor).add(2, Integer.parseInt(text));
                         }
                         break;
-
                     default:
                         break;
-
                 }
                 eventType = parser.next();
             }

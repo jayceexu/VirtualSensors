@@ -165,7 +165,6 @@ public class SensorFragment extends Fragment implements
             // assign directions
             float ax = event.values[0];
             float ay = event.values[1];
-            //ay = ay  + (float)8.0;
             float az = event.values[2];
             float af = (float) Math.sqrt(Math.pow(ax, 2)+ Math.pow(ay, 2)+ Math.pow(az, 2));
             mAccelero.setText("\nAccelerometer :"+"\n"+
@@ -194,7 +193,7 @@ public class SensorFragment extends Fragment implements
         if (msg.equalsIgnoreCase(""))
             return;
         mMessage += msg;
-        if (cnt++ % 4 == 0) {
+        if (cnt++ % 5 == 0) {
             sendMessage(WEAR_MESSAGE_PATH, mMessage);
             mMessage = "";
         }
