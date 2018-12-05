@@ -11,11 +11,15 @@ import android.hardware.SensorEventInjector;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
+import android.os.Messenger;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.Xml;
+import android.widget.Toast;
 
 
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -63,8 +67,24 @@ public class SensingService extends Service implements
     private PrintWriter mPrintWriter;
 
     private boolean empty;
+    private int calibrating = 0;
 
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
+
+    class IncomingHandler extends Handler {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case 1:
+                    Log.i(TAG, "Handling message from the Activity");
+                    calibrating = 0;
+                    break;
+                default:
+                    super.handleMessage(msg);
+            }
+        }
+    }
+    final Messenger mMessenger = new Messenger(new IncomingHandler());
 
     // Should use Thread instead of AsyncTask as this is a long turn workload
     private Thread mThread = new Thread(new Runnable() {
@@ -123,6 +143,11 @@ public class SensingService extends Service implements
 
                 if (msg != null) {
                     Log.d("XUJAY_TCP", "poping up the message " + msg + ", size:" + mLocal.size());
+                    if (calibrating < 1000) {
+
+                        calibrating++;
+                        return;
+                    }
 
                     mSocket = new Socket("127.0.0.1", 14400);
                     mOut = mSocket.getOutputStream();
@@ -165,7 +190,8 @@ public class SensingService extends Service implements
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        Toast.makeText(getApplicationContext(), "binding", Toast.LENGTH_SHORT).show();
+        return mMessenger.getBinder();
     }
 
     @Override
