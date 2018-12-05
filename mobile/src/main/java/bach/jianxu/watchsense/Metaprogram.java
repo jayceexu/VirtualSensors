@@ -10,7 +10,7 @@ public class Metaprogram {
     public String op;
     public String orientation;
     public ArrayList<String> sensors = new ArrayList<>();
-    public HashMap<String, ArrayList<Integer>> data = new HashMap<>();
+    public HashMap<String, ArrayList<Double>> data = new HashMap<>();
     public HashMap<String, Integer> freqs = new HashMap<>();
 
     void dump() {
@@ -19,9 +19,9 @@ public class Metaprogram {
         Log.d(TAG, "op: " + op);
         Log.d(TAG, "orientation: " + orientation);
         Log.d(TAG, "Dumping meta-program......");
-        for (HashMap.Entry<String,  ArrayList<Integer>> entry : data.entrySet()) {
+        for (HashMap.Entry<String,  ArrayList<Double>> entry : data.entrySet()) {
             String key = entry.getKey();
-            ArrayList<Integer> values = entry.getValue();
+            ArrayList<Double> values = entry.getValue();
             Log.d(TAG, "the " + key + " sensor ");
             Log.d(TAG, "frequent sampling: " + freqs.get(key));
             Log.d(TAG, "X-calibrating: " + values.get(0));

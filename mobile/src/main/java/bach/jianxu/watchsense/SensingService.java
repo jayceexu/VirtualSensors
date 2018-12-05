@@ -68,7 +68,9 @@ public class SensingService extends Service implements
 
     private boolean empty;
     private int calibrating = 0;
-
+    private ArrayList<Double> calix = new ArrayList<>();
+    private ArrayList<Double> caliy = new ArrayList<>();
+    private ArrayList<Double> caliz = new ArrayList<>();
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
 
     class IncomingHandler extends Handler {
@@ -78,6 +80,7 @@ public class SensingService extends Service implements
                 case 1:
                     Log.i(TAG, "Handling message from the Activity");
                     calibrating = 0;
+                    calix.clear(); caliy.clear(); caliz.clear();
                     break;
                 default:
                     super.handleMessage(msg);
@@ -118,7 +121,8 @@ public class SensingService extends Service implements
                     for (int i = 0; i < str.length; ++i) {
                         Log.d(TAG, "msg is " + str[i]);
                         String msg2 = applyMetaprogram(str[i], metaprograms.get(0));
-                        sendMsgToLocalServer(msg2);
+                        if (!msg2.equalsIgnoreCase(""))
+                            sendMsgToLocalServer(msg2);
                     }
             }
         }
@@ -133,6 +137,20 @@ public class SensingService extends Service implements
             double x = Double.parseDouble(headers[1]) + meta.data.get(typeStr).get(0);
             double y = Double.parseDouble(msgs[1]) + meta.data.get(typeStr).get(1);
             double z = Double.parseDouble(msgs[2]) + meta.data.get(typeStr).get(2);
+
+            if (calibrating < 1000) {
+                calibrating++;
+                calix.add(x); caliy.add(y); caliz.add(z);
+                return "";
+            } else if (calibrating == 1000){
+                double cx = average(calix), cy = average(caliy), cz = average(caliz);
+                Log.i(TAG, "Calibrated " + cx + ", " + cy + " , " + cz);
+                meta.data.get(typeStr).set(0, -cx);
+                meta.data.get(typeStr).set(1, -cy);
+                meta.data.get(typeStr).set(2, -cz);
+                calibrating = 1001;
+            }
+
             String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
             Log.i(TAG, "applyMetaprogram " + calibratedMsg);
             return calibratedMsg;
@@ -143,12 +161,6 @@ public class SensingService extends Service implements
 
                 if (msg != null) {
                     Log.d("XUJAY_TCP", "poping up the message " + msg + ", size:" + mLocal.size());
-                    if (calibrating < 1000) {
-
-                        calibrating++;
-                        return;
-                    }
-
                     mSocket = new Socket("127.0.0.1", 14400);
                     mOut = mSocket.getOutputStream();
                     mOutput = new PrintWriter(mOut);
@@ -364,7 +376,7 @@ public class SensingService extends Service implements
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
                             meta.sensors.add(text);
                             lastSensor = text;
-                            meta.data.put(lastSensor, new ArrayList<Integer>());
+                            meta.data.put(lastSensor, new ArrayList<Double>());
 
                         } else if (name.equalsIgnoreCase("freq")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
@@ -372,15 +384,15 @@ public class SensingService extends Service implements
 
                         } else if (name.equalsIgnoreCase("x-calibrate")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.data.get(lastSensor).add(0, Integer.parseInt(text));
+                            meta.data.get(lastSensor).add(0, Double.parseDouble(text));
 
                         } else if (name.equalsIgnoreCase("y-calibrate")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            meta.data.get(lastSensor).add(1, Integer.parseInt(text));
+                            meta.data.get(lastSensor).add(1, Double.parseDouble(text));
 
                         } else if (name.equalsIgnoreCase("z-calibrate")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            meta.data.get(lastSensor).add(2, Integer.parseInt(text));
+                            meta.data.get(lastSensor).add(2, Double.parseDouble(text));
                         }
                         break;
                     default:
@@ -397,6 +409,13 @@ public class SensingService extends Service implements
         }
     }
 
+    private double average(ArrayList<Double> arr) {
+        double total = 0;
+        for (int i = 0; i < arr.size(); ++i) {
+            total += arr.get(i);
+        }
+        return total/arr.size();
+    }
     public class AExecutor implements Executor, SensorEventInjector {
 
         AExecutor() {
