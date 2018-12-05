@@ -330,6 +330,10 @@ public class SensingService extends Service implements
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
                             meta.op = text;
 
+                        } else if (name.equalsIgnoreCase("orientation")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
+                            meta.orientation = text;
+
                         } else if (name.equalsIgnoreCase("sensor_type")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
                             meta.sensors.add(text);
