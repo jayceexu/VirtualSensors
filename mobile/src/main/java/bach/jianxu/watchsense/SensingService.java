@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventInjector;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Environment;
@@ -46,6 +47,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class SensingService extends Service implements
+        SensorEventListener,
         DataApi.DataListener,
         GoogleApiClient.ConnectionCallbacks,
         MessageApi.MessageListener,
@@ -128,6 +130,9 @@ public class SensingService extends Service implements
         }
 
         private String applyMetaprogram(String msg, Metaprogram meta) {
+            // msg format "accel:-8.9761505,0.61755913,2.8101335,"
+
+            /****
             String[] msgs = msg.split(",");
             if (msgs.length != 3) return "";
             String[] headers = msgs[0].split(":");
@@ -137,23 +142,28 @@ public class SensingService extends Service implements
             double x = Double.parseDouble(headers[1]) + meta.data.get(typeStr).get(0);
             double y = Double.parseDouble(msgs[1]) + meta.data.get(typeStr).get(1);
             double z = Double.parseDouble(msgs[2]) + meta.data.get(typeStr).get(2);
+             String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
+             Log.i(TAG, "applyMetaprogram " + calibratedMsg);
+             return calibratedMsg;
+             */
+            return msg;
 
-            if (calibrating < 1000) {
-                calibrating++;
-                calix.add(x); caliy.add(y); caliz.add(z);
-                return "";
-            } else if (calibrating == 1000){
-                double cx = average(calix), cy = average(caliy), cz = average(caliz);
-                Log.i(TAG, "Calibrated " + cx + ", " + cy + " , " + cz);
-                meta.data.get(typeStr).set(0, -cx);
-                meta.data.get(typeStr).set(1, -cy);
-                meta.data.get(typeStr).set(2, -cz);
-                calibrating = 1001;
-            }
+            // Calibrating based on watch motion
+//            if (calibrating < 1000) {
+//                calibrating++;
+//                calix.add(x); caliy.add(y); caliz.add(z);
+//                return "";
+//            } else if (calibrating == 1000){
+//                double cx = average(calix), cy = average(caliy), cz = average(caliz);
+//                Log.i(TAG, "Calibrated " + cx + ", " + cy + " , " + cz);
+//                meta.data.get(typeStr).set(0, -cx);
+//                meta.data.get(typeStr).set(1, -cy);
+//                meta.data.get(typeStr).set(2, -cz);
+//                calibrating = 1001;
+//            }
 
-            String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
-            Log.i(TAG, "applyMetaprogram " + calibratedMsg);
-            return calibratedMsg;
+
+
         }
 
         private void sendMsgToLocalServer(String msg) {
@@ -188,7 +198,9 @@ public class SensingService extends Service implements
         mGoogleApiClient.connect();
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
+
         mSensorManager.registerInjector(Sensor.TYPE_ACCELEROMETER, this);
         empty = true;
 
@@ -303,9 +315,10 @@ public class SensingService extends Service implements
 
     @Override
     public void onMessageReceived(MessageEvent messageEvent) {
-        Log.i(TAG, "onMessageReceived msg: " + new String(messageEvent.getData()));
         // Receiving the motion sensor data
         String message = new String(messageEvent.getData());
+        Log.i(TAG, "onMessageReceived msg: " + message);
+
         //sendMessage(message);
         //sendMessage2(message);
 
@@ -407,6 +420,16 @@ public class SensingService extends Service implements
         for (Metaprogram meta: metaprograms) {
             meta.dump();
         }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int i) {
+
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent sensorEvent) {
+        Log.i(TAG, "is orientation " + sensorEvent.values[1]);
     }
 
     private double average(ArrayList<Double> arr) {

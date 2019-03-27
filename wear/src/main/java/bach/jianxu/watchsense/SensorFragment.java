@@ -56,6 +56,7 @@ public class SensorFragment extends Fragment implements
     private TextView mGyroscope;
     private SensorManager mSensorManager;
     private Sensor mSensor;
+    private Sensor mSensor2;
     private int mSensorType;
     private long mShakeTime = 0;
     private long mRotationTime = 0;
@@ -123,7 +124,7 @@ public class SensorFragment extends Fragment implements
         mEmpty = true;
         mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(mSensorType);
-
+        mSensor2 = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
         mThread.start();
     }
 
@@ -144,6 +145,8 @@ public class SensorFragment extends Fragment implements
     public void onResume() {
         super.onResume();
         mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mSensor2, SensorManager.SENSOR_DELAY_NORMAL);
+
     }
 
     @Override
@@ -159,7 +162,9 @@ public class SensorFragment extends Fragment implements
         float gZ = event.values[2] / SensorManager.GRAVITY_EARTH;
 
         String msg = "";
-        //Log.i(TAG, "Getting data: x:" + gX + ", y:" + gY + ", z:" + gZ);
+        if (event.sensor.getType() == Sensor.TYPE_ORIENTATION) {
+            Log.i(TAG, "Orientation Pitch " + event.values[1]);
+        }
 
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER && sampleAccel) {
             // assign directions
@@ -183,9 +188,9 @@ public class SensorFragment extends Fragment implements
             float gz = event.values[2];
             float gf = (float) Math.sqrt(Math.pow(gx, 2)+ Math.pow(gy, 2)+ Math.pow(gz, 2));
             mGyroscope.setText("\nGyroscope :"+"\n"+
-                    "\u03A9x: "+ String.valueOf(gx/gf)+"\n"+
-                    "\u03A9y: "+ String.valueOf(gy/gf)+"\n"+
-                    "\u03A9z: "+ String.valueOf(gz/gf)+"\n"
+                    "\u03A9x: "+ String.valueOf(gx)+"\n"+
+                    "\u03A9y: "+ String.valueOf(gy)+"\n"+
+                    "\u03A9z: "+ String.valueOf(gz)+"\n"
             );
             // TODO: add this line to support gyro
             msg += "gyro:" + String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz) + ",@";

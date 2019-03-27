@@ -41,8 +41,6 @@ public class MainActivity extends AppCompatActivity {
                 } catch (Exception e) {e.printStackTrace();}
             }
         });
-
-
         //Intent aint = new Intent(this, SensingService.class);
         bindService(new Intent(this, SensingService.class), mConnection,
                 Context.BIND_AUTO_CREATE);
