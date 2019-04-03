@@ -16,6 +16,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.Vibrator;
+import android.os.VibratorListener;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -33,12 +35,16 @@ import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
 
 import org.xmlpull.v1.XmlPullParser;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
@@ -46,16 +52,19 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
+
 public class SensingService extends Service implements
         SensorEventListener,
         DataApi.DataListener,
         GoogleApiClient.ConnectionCallbacks,
         MessageApi.MessageListener,
-        SensorEventInjector {
+        SensorEventInjector,
+        VibratorListener {
 
     final static String TAG = "WatchSense";
     private GoogleApiClient mGoogleApiClient;
     private static SensorManager mSensorManager;
+    private Sensor mAllSensor;
     private LinkedBlockingQueue<String> mQueue = new LinkedBlockingQueue<>(100);
 
     private static final String MESSAGE = "/message";
@@ -63,10 +72,10 @@ public class SensingService extends Service implements
     private static int id = 1;
     private static int MAX_SIZE = 50000;
     private static Sensor mSensor;
+    private Vibrator mVib;
 
-    private Socket mSocket;
-    private OutputStream mOutputStream;
-    private PrintWriter mPrintWriter;
+    private ServerSocket mServerSocket;
+    private Thread mServerThread;
 
     private boolean empty;
     private int calibrating = 0;
@@ -74,6 +83,39 @@ public class SensingService extends Service implements
     private ArrayList<Double> caliy = new ArrayList<>();
     private ArrayList<Double> caliz = new ArrayList<>();
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
+
+
+    @SuppressLint("HandlerLeak")
+    @Override
+    public void onCreate() {
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addApi(Wearable.API)
+                .addConnectionCallbacks(this)
+                .build();
+        mGoogleApiClient.connect();
+
+        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        mAllSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
+
+        mVib = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+        mVib.registerListener(this);
+
+        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mAllSensor, SensorManager.SENSOR_DELAY_FASTEST);
+        mSensorManager.registerInjector(Sensor.TYPE_ACCELEROMETER, this);
+
+        empty = true;
+
+        //new AThread().execute();
+        mThread.start();
+        mServerThread = new SocketServerThread();
+        mServerThread.start();
+
+        loadMetaprogram();
+        Log.i(TAG, "Creating..........");
+        super.onCreate();
+    }
 
     class IncomingHandler extends Handler {
         @Override
@@ -174,7 +216,6 @@ public class SensingService extends Service implements
                     mSocket = new Socket("127.0.0.1", 14400);
                     mOut = mSocket.getOutputStream();
                     mOutput = new PrintWriter(mOut);
-
                     mOutput.println(msg);
                     mOutput.flush();
 
@@ -188,28 +229,6 @@ public class SensingService extends Service implements
         }
     });
 
-    @SuppressLint("HandlerLeak")
-    @Override
-    public void onCreate() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .addConnectionCallbacks(this)
-                .build();
-        mGoogleApiClient.connect();
-
-        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
-
-        mSensorManager.registerInjector(Sensor.TYPE_ACCELEROMETER, this);
-        empty = true;
-
-        //new AThread().execute();
-        mThread.start();
-        loadMetaprogram();
-        Log.i(TAG, "Creating..........");
-        super.onCreate();
-    }
 
     @Nullable
     @Override
@@ -488,6 +507,52 @@ public class SensingService extends Service implements
                     sensorEvent.values[i] = t;
                 }
                 mQueue.notifyAll();
+            }
+        }
+    }
+
+    @Override
+    public void onVibration(long millisec) {
+        Log.i(TAG, "onVibration " + millisec);
+    }
+
+    @Override
+    public void onVibration(long[] longs, int repeat) {
+        Log.i(TAG, "onVibration " + longs + ", repeat i=" + repeat);
+    }
+
+    private class VibrationThread extends Thread {
+        String message;
+        VibrationThread(String msg) { message = msg; }
+        @Override
+        public void run() {
+            sendMessage(MESSAGE, message);
+        }
+    }
+
+    private class SocketServerThread extends Thread {
+
+        @Override
+        public void run() {
+            try {
+                // create ServerSocket using specified port
+                mServerSocket = new ServerSocket(16600);
+
+                while (true) {
+                    // block the call until connection is created and return
+                    // Socket object
+                    Socket clientSocket = mServerSocket.accept();
+                    BufferedReader in =
+                            new BufferedReader(
+                                    new InputStreamReader(clientSocket.getInputStream()));
+                    String msg = in.readLine();
+                    Log.d(TAG, "received vibration " + msg);
+                    Thread vThread= new VibrationThread(msg);
+                    vThread.start();
+                }
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
             }
         }
     }

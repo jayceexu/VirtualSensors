@@ -10,6 +10,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Vibrator;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -36,6 +37,8 @@ import java.net.Socket;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static android.content.Context.VIBRATOR_SERVICE;
+
 public class SensorFragment extends Fragment implements
         SensorEventListener,
         DataApi.DataListener,
@@ -57,6 +60,8 @@ public class SensorFragment extends Fragment implements
     private SensorManager mSensorManager;
     private Sensor mSensor;
     private Sensor mSensor2;
+    private Sensor mSensorProximity;
+
     private int mSensorType;
     private long mShakeTime = 0;
     private long mRotationTime = 0;
@@ -69,6 +74,8 @@ public class SensorFragment extends Fragment implements
 
     private boolean sampleGyro = false;
     private boolean sampleAccel = false;
+
+    private Vibrator mVibrator;
 
     public static SensorFragment newInstance(int sensorType, Activity ap) {
         SensorFragment f = new SensorFragment();
@@ -124,7 +131,11 @@ public class SensorFragment extends Fragment implements
         mEmpty = true;
         mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(mSensorType);
-        mSensor2 = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+        mSensorProximity = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
+        mSensor2 = mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+
+        mVibrator = (Vibrator) getActivity().getSystemService(VIBRATOR_SERVICE);
+
         mThread.start();
     }
 
@@ -145,6 +156,7 @@ public class SensorFragment extends Fragment implements
     public void onResume() {
         super.onResume();
         mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mSensorProximity, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mSensor2, SensorManager.SENSOR_DELAY_NORMAL);
 
     }
@@ -157,20 +169,15 @@ public class SensorFragment extends Fragment implements
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        float gX = event.values[0] / SensorManager.GRAVITY_EARTH;
-        float gY = event.values[1] / SensorManager.GRAVITY_EARTH;
-        float gZ = event.values[2] / SensorManager.GRAVITY_EARTH;
-
+        float ax = event.values[0];
+        float ay = event.values[1];
+        float az = event.values[2];
         String msg = "";
-        if (event.sensor.getType() == Sensor.TYPE_ORIENTATION) {
-            Log.i(TAG, "Orientation Pitch " + event.values[1]);
+        Log.i(TAG, "Sensor type " + event.sensor.getType());
+        if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
+            msg += "ambient:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
         }
-
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER && sampleAccel) {
-            // assign directions
-            float ax = event.values[0];
-            float ay = event.values[1];
-            float az = event.values[2];
             float af = (float) Math.sqrt(Math.pow(ax, 2)+ Math.pow(ay, 2)+ Math.pow(az, 2));
             mAccelero.setText("\nAccelerometer :"+"\n"+
                     "\u00E2x: "+ String.valueOf(ax)+"\n"+
@@ -179,26 +186,22 @@ public class SensorFragment extends Fragment implements
                     "\u00E2Net: "+ String.valueOf(af)
             );
             msg += "accel:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
-
         }
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE && sampleGyro) {
-            // assign directions
-            float gx = event.values[0];
-            float gy = event.values[1];
-            float gz = event.values[2];
-            float gf = (float) Math.sqrt(Math.pow(gx, 2)+ Math.pow(gy, 2)+ Math.pow(gz, 2));
+            float gf = (float) Math.sqrt(Math.pow(ax, 2)+ Math.pow(ay, 2)+ Math.pow(az, 2));
             mGyroscope.setText("\nGyroscope :"+"\n"+
-                    "\u03A9x: "+ String.valueOf(gx)+"\n"+
-                    "\u03A9y: "+ String.valueOf(gy)+"\n"+
-                    "\u03A9z: "+ String.valueOf(gz)+"\n"
+                    "\u03A9x: "+ String.valueOf(ax)+"\n"+
+                    "\u03A9y: "+ String.valueOf(ay)+"\n"+
+                    "\u03A9z: "+ String.valueOf(az)+"\n"
             );
             // TODO: add this line to support gyro
-            msg += "gyro:" + String.valueOf(gx) + "," + String.valueOf(gy) + "," + String.valueOf(gz) + ",@";
+            msg += "gyro:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
         }
         if (msg.equalsIgnoreCase(""))
             return;
         mMessage += msg;
-        if (cnt++ % 5 == 0) {
+        if (cnt++ % 8 == 0) {
+            Log.i(TAG, "onSensorChanged..." + mMessage);
             sendMessage(WEAR_MESSAGE_PATH, mMessage);
             mMessage = "";
         }
@@ -312,14 +315,31 @@ public class SensorFragment extends Fragment implements
 
     }
 
+    private class VibrateThread extends Thread {
+        private String message;
+        VibrateThread(String msg) {
+            message = msg;
+        }
+        @Override
+        public void run() {
+            String [] str = message.split(":");
+            int millisec = Integer.parseInt(str[1]);
+            Log.d(TAG, "Vibrating for " + millisec);
+            mVibrator.vibrate(millisec);
+        }
+    }
+
     @Override
     public void onMessageReceived(MessageEvent messageEvent) {
         Log.i(TAG,"Received message.~~~~~~~~~~~~~~~~~~~~~~~" + new String(messageEvent.getData()));
         String msg = new String(messageEvent.getData());
         sampleGyro = msg.contains("gyro");
         sampleAccel = msg.contains("accel");
+        if (msg.contains("vibrator")) {
+            VibrateThread vibrateThread = new VibrateThread(msg);
+            vibrateThread.start();
+        }
     }
-
 
     // Alternative way to create socket for TCP client
     private void sendMessage(final String msg) {
