@@ -17,7 +17,6 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Vibrator;
-import android.os.VibratorListener;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -58,8 +57,7 @@ public class SensingService extends Service implements
         DataApi.DataListener,
         GoogleApiClient.ConnectionCallbacks,
         MessageApi.MessageListener,
-        SensorEventInjector,
-        VibratorListener {
+        SensorEventInjector {
 
     final static String TAG = "WatchSense";
     private GoogleApiClient mGoogleApiClient;
@@ -72,7 +70,6 @@ public class SensingService extends Service implements
     private static int id = 1;
     private static int MAX_SIZE = 50000;
     private static Sensor mSensor;
-    private Vibrator mVib;
 
     private ServerSocket mServerSocket;
     private Thread mServerThread;
@@ -96,15 +93,11 @@ public class SensingService extends Service implements
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        mAllSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
-
-        mVib = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-        mVib.registerListener(this);
+        //mAllSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
 
         mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerListener(this, mAllSensor, SensorManager.SENSOR_DELAY_FASTEST);
+        //mSensorManager.registerListener(this, mAllSensor, SensorManager.SENSOR_DELAY_FASTEST);
         mSensorManager.registerInjector(Sensor.TYPE_ACCELEROMETER, this);
-
         empty = true;
 
         //new AThread().execute();
@@ -511,15 +504,6 @@ public class SensingService extends Service implements
         }
     }
 
-    @Override
-    public void onVibration(long millisec) {
-        Log.i(TAG, "onVibration " + millisec);
-    }
-
-    @Override
-    public void onVibration(long[] longs, int repeat) {
-        Log.i(TAG, "onVibration " + longs + ", repeat i=" + repeat);
-    }
 
     private class VibrationThread extends Thread {
         String message;

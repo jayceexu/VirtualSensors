@@ -60,7 +60,7 @@ public class SensorFragment extends Fragment implements
     private SensorManager mSensorManager;
     private Sensor mSensor;
     private Sensor mSensor2;
-    private Sensor mSensorProximity;
+    private Sensor mSensorAll;
 
     private int mSensorType;
     private long mShakeTime = 0;
@@ -74,6 +74,7 @@ public class SensorFragment extends Fragment implements
 
     private boolean sampleGyro = false;
     private boolean sampleAccel = false;
+    private boolean sampleAmbient = false;
 
     private Vibrator mVibrator;
 
@@ -131,7 +132,7 @@ public class SensorFragment extends Fragment implements
         mEmpty = true;
         mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(mSensorType);
-        mSensorProximity = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
+        mSensorAll = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
         mSensor2 = mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
 
         mVibrator = (Vibrator) getActivity().getSystemService(VIBRATOR_SERVICE);
@@ -145,9 +146,8 @@ public class SensorFragment extends Fragment implements
 
         mView = inflater.inflate(R.layout.sensor, container, false);
 
-        mAccelero = (TextView) mView.findViewById(R.id.txt_accelero);
-        //mTextTitle.setText(mSensor.getStringType());
-        mGyroscope = (TextView) mView.findViewById(R.id.txt_gyroscope);
+        mAccelero = mView.findViewById(R.id.txt_accelero);
+        mGyroscope =  mView.findViewById(R.id.txt_gyroscope);
 
         return mView;
     }
@@ -155,9 +155,9 @@ public class SensorFragment extends Fragment implements
     @Override
     public void onResume() {
         super.onResume();
-        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerListener(this, mSensorProximity, SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerListener(this, mSensor2, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_FASTEST);
+        //mSensorManager.registerListener(this, mSensorAll, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mSensor2, SensorManager.SENSOR_DELAY_FASTEST);
 
     }
 
@@ -200,7 +200,7 @@ public class SensorFragment extends Fragment implements
         if (msg.equalsIgnoreCase(""))
             return;
         mMessage += msg;
-        if (cnt++ % 8 == 0) {
+        if (event.sensor.getType() == Sensor.TYPE_LIGHT || cnt++ % 8 == 0) {
             Log.i(TAG, "onSensorChanged..." + mMessage);
             sendMessage(WEAR_MESSAGE_PATH, mMessage);
             mMessage = "";
@@ -323,6 +323,7 @@ public class SensorFragment extends Fragment implements
         @Override
         public void run() {
             String [] str = message.split(":");
+            if (!str[1].matches("[0-9]+")) return;
             int millisec = Integer.parseInt(str[1]);
             Log.d(TAG, "Vibrating for " + millisec);
             mVibrator.vibrate(millisec);
@@ -335,10 +336,12 @@ public class SensorFragment extends Fragment implements
         String msg = new String(messageEvent.getData());
         sampleGyro = msg.contains("gyro");
         sampleAccel = msg.contains("accel");
+        sampleAmbient = msg.contains("ambient");
         if (msg.contains("vibrator")) {
             VibrateThread vibrateThread = new VibrateThread(msg);
             vibrateThread.start();
         }
+
     }
 
     // Alternative way to create socket for TCP client
