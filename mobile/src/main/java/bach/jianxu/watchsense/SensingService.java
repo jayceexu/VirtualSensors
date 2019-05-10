@@ -81,6 +81,8 @@ public class SensingService extends Service implements
     private ArrayList<Double> caliz = new ArrayList<>();
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
 
+    private MotionDetector motionDetector;
+
 
     @SuppressLint("HandlerLeak")
     @Override
@@ -106,8 +108,21 @@ public class SensingService extends Service implements
         mServerThread.start();
 
         loadMetaprogram();
+        motionDetector = new MotionDetector(this, gestureListener);
+
+        try {
+            motionDetector.start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         Log.i(TAG, "Creating..........");
         super.onCreate();
+    }
+
+    @Override
+    public void onDestroy() {
+        motionDetector.stop();
+        super.onDestroy();
     }
 
     class IncomingHandler extends Handler {
@@ -222,6 +237,12 @@ public class SensingService extends Service implements
         }
     });
 
+    private final MotionDetector.Listener gestureListener = new MotionDetector.Listener() {
+        @Override
+        public void onGestureRecognized(MotionDetector.GestureType gestureType) {
+            Log.d(TAG, "Gesture detected: " + gestureType);
+        }
+    };
 
     @Nullable
     @Override
