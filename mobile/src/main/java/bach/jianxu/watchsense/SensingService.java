@@ -81,7 +81,7 @@ public class SensingService extends Service implements
     private ArrayList<Double> caliz = new ArrayList<>();
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
 
-    private MotionDetector motionDetector;
+    private MotionDetector mMotionDetector;
 
 
     @SuppressLint("HandlerLeak")
@@ -108,10 +108,10 @@ public class SensingService extends Service implements
         mServerThread.start();
 
         loadMetaprogram();
-        motionDetector = new MotionDetector(this, gestureListener);
+        mMotionDetector = new MotionDetector(this, gestureListener);
 
         try {
-            motionDetector.start();
+            mMotionDetector.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -121,7 +121,7 @@ public class SensingService extends Service implements
 
     @Override
     public void onDestroy() {
-        motionDetector.stop();
+        mMotionDetector.stop();
         super.onDestroy();
     }
 
@@ -179,43 +179,6 @@ public class SensingService extends Service implements
             }
         }
 
-        private String applyMetaprogram(String msg, Metaprogram meta) {
-            // msg format "accel:-8.9761505,0.61755913,2.8101335,"
-
-            /****
-            String[] msgs = msg.split(",");
-            if (msgs.length != 3) return "";
-            String[] headers = msgs[0].split(":");
-            if (headers.length != 2) return "";
-
-            String typeStr = headers[0];
-            double x = Double.parseDouble(headers[1]) + meta.data.get(typeStr).get(0);
-            double y = Double.parseDouble(msgs[1]) + meta.data.get(typeStr).get(1);
-            double z = Double.parseDouble(msgs[2]) + meta.data.get(typeStr).get(2);
-             String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
-             Log.i(TAG, "applyMetaprogram " + calibratedMsg);
-             return calibratedMsg;
-             */
-            return msg;
-
-            // Calibrating based on watch motion
-//            if (calibrating < 1000) {
-//                calibrating++;
-//                calix.add(x); caliy.add(y); caliz.add(z);
-//                return "";
-//            } else if (calibrating == 1000){
-//                double cx = average(calix), cy = average(caliy), cz = average(caliz);
-//                Log.i(TAG, "Calibrated " + cx + ", " + cy + " , " + cz);
-//                meta.data.get(typeStr).set(0, -cx);
-//                meta.data.get(typeStr).set(1, -cy);
-//                meta.data.get(typeStr).set(2, -cz);
-//                calibrating = 1001;
-//            }
-
-
-
-        }
-
         private void sendMsgToLocalServer(String msg) {
             try {
 
@@ -235,12 +198,61 @@ public class SensingService extends Service implements
                 e.printStackTrace();
             }
         }
+
+        private String applyMetaprogram(String msg, Metaprogram meta) {
+            // msg format "accel:-8.9761505,0.61755913,2.8101335,"
+
+            String[] msgs = msg.split(",");
+            if (msgs.length != 3) return "";
+            String[] headers = msgs[0].split(":");
+            if (headers.length != 2) return "";
+
+            String typeStr = headers[0];
+            double x = Double.parseDouble(headers[1]);// + meta.data.get(typeStr).get(0);
+            double y = Double.parseDouble(msgs[1]);// + meta.data.get(typeStr).get(1);
+            double z = Double.parseDouble(msgs[2]);// + meta.data.get(typeStr).get(2);
+            // String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
+            // Log.i(TAG, "applyMetaprogram " + calibratedMsg);
+            // return calibratedMsg;
+
+            synchronized (mMotionDetector.recordingData) {
+                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)x / mMotionDetector.DATA_NORMALIZATION_COEF;
+                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)y / mMotionDetector.DATA_NORMALIZATION_COEF;
+                //recordingData[dataPos++] = event.values[2] / DATA_NORMALIZATION_COEF;
+                if (mMotionDetector.dataPos >= mMotionDetector.recordingData.length) {
+                    mMotionDetector.dataPos = 0;
+                }
+            }
+            // run recognition if recognition thread is available
+            if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
+
+            return msg;
+            // Calibrating based on watch motion
+//            if (calibrating < 1000) {
+//                calibrating++;
+//                calix.add(x); caliy.add(y); caliz.add(z);
+//                return "";
+//            } else if (calibrating == 1000){
+//                double cx = average(calix), cy = average(caliy), cz = average(caliz);
+//                Log.i(TAG, "Calibrated " + cx + ", " + cy + " , " + cz);
+//                meta.data.get(typeStr).set(0, -cx);
+//                meta.data.get(typeStr).set(1, -cy);
+//                meta.data.get(typeStr).set(2, -cz);
+//                calibrating = 1001;
+//            }
+        }
+
     });
 
     private final MotionDetector.Listener gestureListener = new MotionDetector.Listener() {
         @Override
         public void onGestureRecognized(MotionDetector.GestureType gestureType) {
             Log.d(TAG, "Gesture detected: " + gestureType);
+            if (gestureType == MotionDetector.GestureType.MoveLeft) {
+
+            } else if (gestureType == MotionDetector.GestureType.MoveRight) {
+
+            }
         }
     };
 

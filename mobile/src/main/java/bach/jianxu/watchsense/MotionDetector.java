@@ -9,6 +9,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.util.Log;
 
 import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 
@@ -38,7 +39,7 @@ public class MotionDetector {
 	private static final long[] INPUT_SIZE = {1, GESTURE_SAMPLES, NUM_CHANNELS};
 	private static final String[] labels = new String[]{"Right", "Left"};
 
-	private static final float DATA_NORMALIZATION_COEF = 9f;
+	public static final float DATA_NORMALIZATION_COEF = 9f;
 	private static final int FILTER_COEF = 20;
 
 	private final Context context;
@@ -46,17 +47,17 @@ public class MotionDetector {
 	private final Handler mainHandler;
 
 	private final float[] outputScores = new float[labels.length];
-	private final float[] recordingData = new float[GESTURE_SAMPLES * NUM_CHANNELS];
+	public final float[] recordingData = new float[GESTURE_SAMPLES * NUM_CHANNELS];
 	private final float[] recognData = new float[GESTURE_SAMPLES * NUM_CHANNELS];
 	private final float[] filteredData = new float[GESTURE_SAMPLES * NUM_CHANNELS];
-	private int dataPos = 0;
+	public int dataPos = 0;
 
 	private TensorFlowInferenceInterface inferenceInterface;
 	private HandlerThread sensorHandlerThread;
 	private Handler sensorHandler;
 
 	private Thread recognitionThread;
-	private final Semaphore recognSemaphore = new Semaphore(0);
+	public final Semaphore recognSemaphore = new Semaphore(0);
 
 	private SensorManager sensorManager;
 	private Sensor accelerometer;
@@ -80,24 +81,24 @@ public class MotionDetector {
 		recognitionThread = new Thread(recognitionRunnable, "recognition thread");
 		recognitionThread.start();
 
-		recStarted = sensorManager.registerListener(sensorEventListener, accelerometer,
-			GESTURE_DURATION_MS / GESTURE_SAMPLES, sensorHandler);
+		//recStarted = sensorManager.registerListener(sensorEventListener, accelerometer,
+		//	GESTURE_DURATION_MS / GESTURE_SAMPLES, sensorHandler);
 
-		if (!recStarted) {
-			sensorHandlerThread.quitSafely();
-			recognitionThread.interrupt();
-
-			sensorHandlerThread = null;
-			recognitionThread = null;
-			sensorHandler = null;
-
-			throw new Exception("registerListener failed. Check that the device has all accelerometer, magnetometer and gyroscope sensors");
-		}
+//		if (!recStarted) {
+//			sensorHandlerThread.quitSafely();
+//			recognitionThread.interrupt();
+//
+//			sensorHandlerThread = null;
+//			recognitionThread = null;
+//			sensorHandler = null;
+//
+//			throw new Exception("registerListener failed. Check that the device has all accelerometer, magnetometer and gyroscope sensors");
+//		}
 	}
 
 	public void stop() {
 		if (recStarted) {
-			sensorManager.unregisterListener(sensorEventListener);
+			//sensorManager.unregisterListener(sensorEventListener);
 
 			sensorHandlerThread.quitSafely();
 			recognitionThread.interrupt();
@@ -158,6 +159,7 @@ public class MotionDetector {
 				try {
 					recognSemaphore.acquire();
 					processData();
+					Log.d("MotionDector", "processing recoginition data");
 					recognSemaphore.release();
 				}
 				catch (InterruptedException ignored) {
