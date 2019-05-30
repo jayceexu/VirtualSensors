@@ -143,7 +143,6 @@ public class SensorFragment extends Fragment implements
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-
         mView = inflater.inflate(R.layout.sensor, container, false);
 
         mAccelero = mView.findViewById(R.id.txt_accelero);
@@ -166,7 +165,15 @@ public class SensorFragment extends Fragment implements
         super.onPause();
         mSensorManager.unregisterListener(this);
     }
+    float[] inR = new float[16];
+    float[] I = new float[16];
+    float[] gravity = new float[3];
+    float[] geomag = new float[3];
+    float[] orientVals = new float[3];
 
+    double azimuth = 0;
+    double pitch = 0;
+    double roll = 0;
     @Override
     public void onSensorChanged(SensorEvent event) {
         float ax = event.values[0];
@@ -177,7 +184,13 @@ public class SensorFragment extends Fragment implements
         if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
             msg += "ambient:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
         }
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER && sampleAccel) {
+        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+            geomag = event.values.clone();
+        }
+
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            gravity = event.values.clone();
+
             float af = (float) Math.sqrt(Math.pow(ax, 2)+ Math.pow(ay, 2)+ Math.pow(az, 2));
             mAccelero.setText("\nAccelerometer :"+"\n"+
                     "\u00E2x: "+ String.valueOf(ax)+"\n"+
@@ -196,6 +209,23 @@ public class SensorFragment extends Fragment implements
             );
             // TODO: add this line to support gyro
             msg += "gyro:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+        }
+
+
+        if (gravity != null && geomag != null) {
+
+            // checks that the rotation matrix is found
+            boolean success = SensorManager.getRotationMatrix(inR, I,
+                    gravity, geomag);
+            if (success) {
+                SensorManager.getOrientation(inR, orientVals);
+                azimuth = Math.toDegrees(orientVals[0]);
+                pitch = Math.toDegrees(orientVals[1]);
+                roll = Math.toDegrees(orientVals[2]);
+                Log.i(TAG, "azimuth: " + azimuth
+                        + ", pitch: " + pitch
+                        + ", roll: " + roll);
+            }
         }
         if (msg.equalsIgnoreCase(""))
             return;
@@ -233,56 +263,6 @@ public class SensorFragment extends Fragment implements
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
-    }
-
-
-    // References:
-    //  - http://jasonmcreynolds.com/?p=388
-    //  - http://code.tutsplus.com/tutorials/using-the-accelerometer-on-android--mobile-22125
-    private void detectShake(SensorEvent event) {
-        long now = System.currentTimeMillis();
-
-        double gX = event.values[0] / SensorManager.GRAVITY_EARTH;
-        double gY = event.values[1] / SensorManager.GRAVITY_EARTH;
-        double gZ = event.values[2] / SensorManager.GRAVITY_EARTH;
-        Log.i("Sensor", "Getting data: x-" + gX + ",y-" + gY + ",z-" + gZ);
-
-        if((now - mShakeTime) > SHAKE_WAIT_TIME_MS) {
-            mShakeTime = now;
-
-
-            // gForce will be close to 1 when there is no movement
-            double gForce = Math.sqrt(gX*gX + gY*gY + gZ*gZ);
-
-            // Change background color if gForce exceeds threshold;
-            // otherwise, reset the color
-            if(gForce > SHAKE_THRESHOLD) {
-                mView.setBackgroundColor(Color.rgb(0, 100, 0));
-            }
-            else {
-                mView.setBackgroundColor(Color.BLACK);
-            }
-        }
-    }
-
-    private void detectRotation(SensorEvent event) {
-        long now = System.currentTimeMillis();
-
-        if((now - mRotationTime) > ROTATION_WAIT_TIME_MS) {
-            mRotationTime = now;
-
-            // Change background color if rate of rotation around any
-            // axis and in any direction exceeds threshold;
-            // otherwise, reset the color
-            if(Math.abs(event.values[0]) > ROTATION_THRESHOLD ||
-               Math.abs(event.values[1]) > ROTATION_THRESHOLD ||
-               Math.abs(event.values[2]) > ROTATION_THRESHOLD) {
-                mView.setBackgroundColor(Color.rgb(0, 100, 0));
-            }
-            else {
-                mView.setBackgroundColor(Color.BLACK);
-            }
-        }
     }
 
     private void sendMessage(final String path, final String text) {
@@ -341,7 +321,6 @@ public class SensorFragment extends Fragment implements
             VibrateThread vibrateThread = new VibrateThread(msg);
             vibrateThread.start();
         }
-
     }
 
     // Alternative way to create socket for TCP client

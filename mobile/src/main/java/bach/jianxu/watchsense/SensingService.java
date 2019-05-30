@@ -46,6 +46,8 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
@@ -79,10 +81,11 @@ public class SensingService extends Service implements
     private ArrayList<Double> calix = new ArrayList<>();
     private ArrayList<Double> caliy = new ArrayList<>();
     private ArrayList<Double> caliz = new ArrayList<>();
+    private ArrayList<Double> mCoordinates = new ArrayList<>(Arrays.asList(0.0, 0.0, 0.0));
+    private boolean mInitCoordinate = false;
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
 
     private MotionDetector mMotionDetector;
-
 
     @SuppressLint("HandlerLeak")
     @Override
@@ -95,10 +98,12 @@ public class SensingService extends Service implements
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        //mAllSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
+        mAllSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
 
         mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
-        //mSensorManager.registerListener(this, mAllSensor, SensorManager.SENSOR_DELAY_FASTEST);
+        mSensorManager.registerListener(this, mAllSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerInjector(Sensor.TYPE_ACCELEROMETER, this);
         empty = true;
 
@@ -208,12 +213,20 @@ public class SensingService extends Service implements
             if (headers.length != 2) return "";
 
             String typeStr = headers[0];
+            if (!typeStr.contains("accel")) return msg;
+
             double x = Double.parseDouble(headers[1]);// + meta.data.get(typeStr).get(0);
             double y = Double.parseDouble(msgs[1]);// + meta.data.get(typeStr).get(1);
             double z = Double.parseDouble(msgs[2]);// + meta.data.get(typeStr).get(2);
             // String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
             // Log.i(TAG, "applyMetaprogram " + calibratedMsg);
             // return calibratedMsg;
+            if (!mInitCoordinate) {
+                mInitCoordinate = true;
+                mCoordinates.set(0, x);
+                mCoordinates.set(1, y);
+                mCoordinates.set(2, y);
+            }
 
             synchronized (mMotionDetector.recordingData) {
                 mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)x / mMotionDetector.DATA_NORMALIZATION_COEF;
@@ -225,7 +238,9 @@ public class SensingService extends Service implements
             }
             // run recognition if recognition thread is available
             if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
+            msg = typeStr+":" + mCoordinates.get(0)+","+mCoordinates.get(1)+","+mCoordinates.get(2)+",";
 
+            Log.d(TAG, "message: " + msg);
             return msg;
             // Calibrating based on watch motion
 //            if (calibrating < 1000) {
@@ -248,10 +263,25 @@ public class SensingService extends Service implements
         @Override
         public void onGestureRecognized(MotionDetector.GestureType gestureType) {
             Log.d(TAG, "Gesture detected: " + gestureType);
+            double x = mCoordinates.get(0);
+            double y = mCoordinates.get(1);
+            double d = 5;
             if (gestureType == MotionDetector.GestureType.MoveLeft) {
-
+                //mCoordinates.set(0, x+d);
+                //mCoordinates.set(1, y+d);
+                if (Shell.isSuAvailable()) {
+                    String command = "input swipe 483 1120 930 1120";
+                    Log.d(TAG, "Command is: " + command);
+                    Shell.runCommand(command);
+                }
             } else if (gestureType == MotionDetector.GestureType.MoveRight) {
-
+                //mCoordinates.set(0, x-d);
+                //mCoordinates.set(1, y-d);
+                if (Shell.isSuAvailable()) {
+                    String command = "/data/local/tmp/mysendevent /dev/input/event1 /sdcard/temp/recorded_touch_events.txt";
+                    Log.d(TAG, "Command is: " + command);
+                    Shell.runCommand(command);
+                }
             }
         }
     };
@@ -472,9 +502,45 @@ public class SensingService extends Service implements
 
     }
 
+    float[] inR = new float[16];
+    float[] I = new float[16];
+    float[] gravity = new float[3];
+    float[] geomag = new float[3];
+    float[] orientVals = new float[3];
+
+    double azimuth = 0;
+    double pitch = 0;
+    double roll = 0;
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
-        Log.i(TAG, "is orientation " + sensorEvent.values[1]);
+        // If the sensor data is unreliable return
+        if (sensorEvent.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE)
+            return;
+
+        // Gets the value of the sensor that has been changed
+        switch (sensorEvent.sensor.getType()) {
+            case Sensor.TYPE_ACCELEROMETER:
+                gravity = sensorEvent.values.clone();
+                break;
+            case Sensor.TYPE_MAGNETIC_FIELD:
+                geomag = sensorEvent.values.clone();
+                break;
+        }
+
+        // If gravity and geomag have values then find rotation matrix
+        if (gravity != null && geomag != null) {
+            // checks that the rotation matrix is found
+            boolean success = SensorManager.getRotationMatrix(inR, I, gravity, geomag);
+            if (success) {
+                SensorManager.getOrientation(inR, orientVals);
+                azimuth = Math.toDegrees(orientVals[0]);
+                pitch = Math.toDegrees(orientVals[1]);
+                roll = Math.toDegrees(orientVals[2]);
+                Log.i(TAG, "azimuth: " + azimuth
+                        + ", pitch: " + pitch
+                        + ", roll: " + roll);
+            }
+        }
     }
 
     private double average(ArrayList<Double> arr) {

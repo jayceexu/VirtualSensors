@@ -17,6 +17,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -29,6 +30,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        final EditText gestureTxt = (EditText) findViewById(R.id.gesture_txt);
+        Button recordBtn = (Button) findViewById(R.id.record_btn);
+        recordBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String gestureName = gestureTxt.getText() != null ? gestureTxt.getText().toString() : "default";
+                if (Shell.isSuAvailable()) {
+                    String fname = "/sdcard/temp/recorded_gesture_"
+                            + gestureName.trim().replaceAll(" ", "_").toLowerCase() + ".txt";
+                    String command = "/data/local/tmp/getevent -t /dev/input/event1 > " + fname;
+                    Log.d(TAG, "Command is: " + command);
+                    Shell.runCommand(command);
+                }
+            }
+        });
 
         Button btn = (Button) findViewById(R.id.calibration_btn);
         btn.setOnClickListener(new View.OnClickListener() {
