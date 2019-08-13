@@ -13,6 +13,9 @@ public class Metaprogram {
     public HashMap<String, ArrayList<Double>> data = new HashMap<>();
     public HashMap<String, Integer> freqs = new HashMap<>();
 
+    public ArrayList<String> mappingSources = new ArrayList<>();
+    public ArrayList<String> mappingDests = new ArrayList<>();
+
     void dump() {
         Log.d(TAG, "Dumping meta-program......");
         Log.d(TAG, "App name: " + app_name);

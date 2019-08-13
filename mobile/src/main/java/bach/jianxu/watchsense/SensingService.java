@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
-import android.hardware.SensorEventInjector;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
@@ -17,8 +16,6 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Vibrator;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.Xml;
 import android.widget.Toast;
@@ -58,8 +55,7 @@ public class SensingService extends Service implements
         SensorEventListener,
         DataApi.DataListener,
         GoogleApiClient.ConnectionCallbacks,
-        MessageApi.MessageListener,
-        SensorEventInjector {
+        MessageApi.MessageListener {
 
     final static String TAG = "WatchSense";
     private GoogleApiClient mGoogleApiClient;
@@ -104,7 +100,6 @@ public class SensingService extends Service implements
         mSensorManager.registerListener(this, mAllSensor, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
                 SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerInjector(Sensor.TYPE_ACCELEROMETER, this);
         empty = true;
 
         //new AThread().execute();
@@ -286,62 +281,11 @@ public class SensingService extends Service implements
         }
     };
 
-    @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         Toast.makeText(getApplicationContext(), "binding", Toast.LENGTH_SHORT).show();
         return mMessenger.getBinder();
     }
-
-    @Override
-    public void onSensorReceived(SensorEvent sensorEvent) {
-        String str = "";
-        for (int i = 0; i < sensorEvent.values.length; ++i) {
-            sensorEvent.values[i] -= 1;
-            str += sensorEvent.values[i] + ", ";
-        }
-        Log.i(TAG, "XUJAY_SS onSensorReceived: values " + str);
-
-//            while (mQueue.isEmpty()) {
-//                Log.d(TAG, "The queue is empty....");
-//                try {
-//                    mQueue.wait();
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                }
-//            }
-
-            if (mQueue.size() == 0)
-                return;
-            StringTokenizer tokens;
-            String msg = "";
-            try {
-                //msg = mQueue.take();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            tokens = new StringTokenizer(msg, ",");
-
-//            for (int i = 0; i <= tokens.countTokens(); ++i) {
-//                float t = Float.valueOf(tokens.nextToken());
-//                Log.d(TAG, "float is " + t);
-//                sensorEvent.values[i] = t;
-//            }
-            int i = 0;
-            str = "";
-            while (tokens.hasMoreTokens()) {
-                float t = Float.valueOf(tokens.nextToken());
-                str += t + ", ";
-
-                sensorEvent.values[i] = t;
-                ++i;
-            }
-            Log.d(TAG, "XUJAY_SS receiving floats are: " + str);
-            //mQueue.notifyAll();
-
-
-    }
-
 
     // Alternative way to create socket for TCP client
     private void sendMessage(final String msg) {
@@ -550,13 +494,13 @@ public class SensingService extends Service implements
         }
         return total/arr.size();
     }
-    public class AExecutor implements Executor, SensorEventInjector {
+    public class AExecutor implements Executor {
 
         AExecutor() {
 
         }
         @Override
-        public void execute(@NonNull Runnable runnable) {
+        public void execute(Runnable runnable) {
             Log.i(TAG, "Starting AExecutor....");
 
             while (true) {
@@ -568,37 +512,6 @@ public class SensingService extends Service implements
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-            }
-        }
-
-        @Override
-        public void onSensorReceived(SensorEvent sensorEvent) {
-            String str = "";
-            for (int i = 0; i < sensorEvent.values.length; ++i) {
-                sensorEvent.values[i] -= 1;
-                str += sensorEvent.values[i] + ", ";
-            }
-            Log.i(TAG, "onSensorReceived: values " + str);
-
-            synchronized (mQueue) {
-                while (mQueue.isEmpty()) {
-                    Log.d(TAG, "The queue is empty....");
-                    try {
-                        mQueue.wait();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                String msg = mQueue.poll();
-                StringTokenizer tokens = new StringTokenizer(msg, ",");
-
-
-                for (int i = 0; i < tokens.countTokens(); ++i) {
-                    float t = Float.valueOf(tokens.nextToken());
-                    Log.d(TAG, "float is " + t);
-                    sensorEvent.values[i] = t;
-                }
-                mQueue.notifyAll();
             }
         }
     }
