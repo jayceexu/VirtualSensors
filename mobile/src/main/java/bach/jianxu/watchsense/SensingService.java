@@ -81,8 +81,11 @@ public class SensingService extends Service implements
     private boolean mInitCoordinate = false;
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
 
+    private final int MATRIX_SIZE = 100;
     private MotionDetector mMotionDetector;
     private MultipleLinearRegression mMultipleLinearRegression;
+    private ArrayList<ArrayList<Double>> localMatrix = new ArrayList<>(MATRIX_SIZE);
+    private ArrayList<ArrayList<Double>> remoteMatrix = new ArrayList<>(MATRIX_SIZE);
 
     @SuppressLint("HandlerLeak")
     @Override
@@ -94,7 +97,7 @@ public class SensingService extends Service implements
         mGoogleApiClient.connect();
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mAllSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
 
         mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
@@ -110,7 +113,7 @@ public class SensingService extends Service implements
 
         loadMetaprogram();
         mMotionDetector = new MotionDetector(this, gestureListener);
-
+        //mMultipleLinearRegression = new MultipleLinearRegression();
         try {
             mMotionDetector.start();
         } catch (Exception e) {
@@ -221,22 +224,38 @@ public class SensingService extends Service implements
                 mInitCoordinate = true;
                 mCoordinates.set(0, x);
                 mCoordinates.set(1, y);
-                mCoordinates.set(2, y);
+                mCoordinates.set(2, z);
             }
 
-            synchronized (mMotionDetector.recordingData) {
-                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)x / mMotionDetector.DATA_NORMALIZATION_COEF;
-                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)y / mMotionDetector.DATA_NORMALIZATION_COEF;
-                //recordingData[dataPos++] = event.values[2] / DATA_NORMALIZATION_COEF;
-                if (mMotionDetector.dataPos >= mMotionDetector.recordingData.length) {
-                    mMotionDetector.dataPos = 0;
-                }
-            }
-            // run recognition if recognition thread is available
-            if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
+//            synchronized (mMotionDetector.recordingData) {
+//                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)x / mMotionDetector.DATA_NORMALIZATION_COEF;
+//                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)y / mMotionDetector.DATA_NORMALIZATION_COEF;
+//                //recordingData[dataPos++] = event.values[2] / DATA_NORMALIZATION_COEF;
+//                if (mMotionDetector.dataPos >= mMotionDetector.recordingData.length) {
+//                    mMotionDetector.dataPos = 0;
+//                }
+//            }
+//            // run recognition if recognition thread is available
+//            if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
             msg = typeStr+":" + mCoordinates.get(0)+","+mCoordinates.get(1)+","+mCoordinates.get(2)+",";
-
             Log.d(TAG, "message: " + msg);
+
+            if (remoteMatrix.size() < MATRIX_SIZE) {
+                ArrayList<Double> tuple = new ArrayList<>();
+                tuple.add(x);
+                tuple.add(y);
+                tuple.add(z);
+                remoteMatrix.add(tuple);
+            } else if (remoteMatrix.size() == MATRIX_SIZE) {
+                //mMultipleLinearRegression.calibrate(remoteMatrix, localMatrix);
+                ArrayList<Double> tuple = new ArrayList<>();
+                tuple.add(x);
+                tuple.add(y);
+                tuple.add(z);
+                remoteMatrix.add(tuple);
+            }
+
+            Log.i(TAG, "Calibrating remoteMatrix size " + remoteMatrix.size());
             return msg;
             // Calibrating based on watch motion
 //            if (calibrating < 1000) {
@@ -458,14 +477,21 @@ public class SensingService extends Service implements
     double roll = 0;
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
+        Log.i(TAG, "sampling from phone device");
         // If the sensor data is unreliable return
-        if (sensorEvent.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE)
-            return;
 
         // Gets the value of the sensor that has been changed
         switch (sensorEvent.sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
                 gravity = sensorEvent.values.clone();
+                Log.i(TAG, "Calibrating localMatrix size " + remoteMatrix.size());
+                if (localMatrix.size() >= MATRIX_SIZE) return;
+                double ax = sensorEvent.values[0];
+                double ay = sensorEvent.values[1];
+                double az = sensorEvent.values[2];
+                ArrayList<Double> tuple = new ArrayList<>();
+                tuple.add(ax); tuple.add(ay); tuple.add(az);
+                localMatrix.add(tuple);
                 break;
             case Sensor.TYPE_MAGNETIC_FIELD:
                 geomag = sensorEvent.values.clone();
@@ -488,13 +514,6 @@ public class SensingService extends Service implements
         }
     }
 
-    private double average(ArrayList<Double> arr) {
-        double total = 0;
-        for (int i = 0; i < arr.size(); ++i) {
-            total += arr.get(i);
-        }
-        return total/arr.size();
-    }
     public class AExecutor implements Executor {
 
         AExecutor() {
