@@ -82,6 +82,7 @@ public class SensingService extends Service implements
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
 
     private MotionDetector mMotionDetector;
+    private MultipleLinearRegression mMultipleLinearRegression;
 
     @SuppressLint("HandlerLeak")
     @Override

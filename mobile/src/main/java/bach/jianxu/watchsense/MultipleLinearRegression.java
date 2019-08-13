@@ -13,6 +13,11 @@ package bach.jianxu.watchsense;
  *
  ******************************************************************************/
 
+import android.util.Log;
+
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+
 import Jama.Matrix;
 import Jama.QRDecomposition;
 
@@ -36,12 +41,14 @@ public class MultipleLinearRegression {
     private final Matrix beta;  // regression coefficients
     private double sse;         // sum of squared
     private double sst;         // sum of squared
-
+    private MultipleLinearRegression m_x_regressor;
+    private MultipleLinearRegression m_y_regressor;
+    private MultipleLinearRegression m_z_regressor;
+    private String TAG = "MultipleLinearRegression";
    /**
      * Performs a linear regression on the data points {@code (y[i], x[i][j])}.
      * @param  x the values of the predictor variables
      * @param  y the corresponding values of the response variable
-     * @throws IllegalArgumentException if the lengths of the two arrays are not equal
      */
     public MultipleLinearRegression(double[][] x, double[] y) {
         if (x.length != y.length) {
@@ -101,40 +108,73 @@ public class MultipleLinearRegression {
 
    /**
      * Unit tests the {@code MultipleLinearRegression} data type.
+     * calibrating from dev_* to ph_*
      *
-     * @param args the command-line arguments
      */
-    
-    public static void get_input(double dev_x[], double dev_y[], double dev_z[],
-		    double ph_x[], double ph_y[], double ph_z[],
-		    MultipleLinearRegression x_regressor,
-		    MultipleLinearRegression y_regressor,
-		    MultipleLinearRegression z_regressor) {
-	    int num_data_points = dev_x.length;
-	    double[][] x = new double[num_data_points][4];
+    public void calibrate(ArrayList<ArrayList<Double>> srcMatrix,
+                          ArrayList<ArrayList<Double>> dstMatrix) {
+        if (srcMatrix.size() != dstMatrix.size()) {
+            Log.e(TAG, "calibrate Failed: tuple size is not equivalent");
+            return;
+        }
+	    int num_data_points = srcMatrix.size();
+	    double[][] arr = new double[num_data_points][4];
+        double [] x = new double[num_data_points];
+        double [] y = new double[num_data_points];
+        double [] z = new double[num_data_points];
 	    for (int i = 0; i < num_data_points; i++) {
-		    x[i][0] = 1;
-		    x[i][1] = dev_x[i];
-		    x[i][2] = dev_y[i];
-		    x[i][3] = dev_z[i];
+		    arr[i][0] = 1;
+		    arr[i][1] = srcMatrix.get(i).get(0);
+		    arr[i][2] = srcMatrix.get(i).get(1);
+		    arr[i][3] = srcMatrix.get(i).get(2);
+		    x[i] = dstMatrix.get(i).get(0);
+		    y[i] = dstMatrix.get(i).get(1);
+		    z[i] = dstMatrix.get(i).get(2);
 	    }
-	    System.out.println(num_data_points);
-	    System.out.println(ph_x.length);
-	    x_regressor = new MultipleLinearRegression(x, ph_x);
-	    y_regressor = new MultipleLinearRegression(x, ph_y);
-	    z_regressor = new MultipleLinearRegression(x, ph_z);
+        m_x_regressor = new MultipleLinearRegression(arr, x);
+	    m_y_regressor = new MultipleLinearRegression(arr, y);
+	    m_z_regressor = new MultipleLinearRegression(arr, z);
+        Log.i(TAG, "Now finished calibrating the " + num_data_points + " sets of data");
     }
 
-    public static void test_regression(double dev_x[], double dev_y[], double dev_z[],
-		    MultipleLinearRegression x_regressor,
-		    MultipleLinearRegression y_regressor,
-		    MultipleLinearRegression z_regressor) {
+    public void test_regression(double dev_x[], double dev_y[], double dev_z[]) {
 	    double[] ph_x = new double[dev_x.length];
 	    for (int i = 0; i < dev_x.length; i++) {
-	    	ph_x[i] = x_regressor.beta(0) + x_regressor.beta(1) * dev_x[i]
-			+ x_regressor.beta(2) * dev_x[i] + x_regressor.beta(3) * dev_x[i];
+	    	ph_x[i] = m_x_regressor.beta(0) + m_x_regressor.beta(1) * dev_x[i]
+			+ m_x_regressor.beta(2) * dev_x[i] + m_x_regressor.beta(3) * dev_x[i];
 	    }
 	    System.out.println("Output = " + ph_x);
+    }
+
+    /**
+     * convert matrix from watch to phone
+     * @param matrix: it has matrix.size() tuples, each tuple has 3 values: x, y, z
+     *
+     */
+    public ArrayList<ArrayList<Double>> convert(ArrayList<ArrayList<Double>> matrix) {
+        int n = matrix.size();
+        ArrayList<ArrayList<Double>> res = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            ArrayList<Double> tuple = new ArrayList<>(3);
+            double v =  m_x_regressor.beta(0) + m_x_regressor.beta(1) * matrix.get(i).get(0)
+                                            + m_x_regressor.beta(2) * matrix.get(i).get(0)
+                                            + m_x_regressor.beta(3) * matrix.get(i).get(0);
+            tuple.add(v);
+
+            v =  m_x_regressor.beta(0) + m_x_regressor.beta(1) * matrix.get(i).get(1)
+                                        + m_x_regressor.beta(2) * matrix.get(i).get(1)
+                                        + m_x_regressor.beta(3) * matrix.get(i).get(1);
+            tuple.add(v);
+
+            v =  m_x_regressor.beta(0) + m_x_regressor.beta(1) * matrix.get(i).get(2)
+                                        + m_x_regressor.beta(2) * matrix.get(i).get(2)
+                                        + m_x_regressor.beta(3) * matrix.get(i).get(2);
+            tuple.add(v);
+
+            res.add(tuple);
+        }
+        return res;
+
     }
 }
 
