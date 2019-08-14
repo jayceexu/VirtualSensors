@@ -45,6 +45,8 @@ public class MultipleLinearRegression {
     private MultipleLinearRegression m_y_regressor;
     private MultipleLinearRegression m_z_regressor;
     private String TAG = "MultipleLinearRegression";
+
+    public MultipleLinearRegression() {beta = null;}
    /**
      * Performs a linear regression on the data points {@code (y[i], x[i][j])}.
      * @param  x the values of the predictor variables
