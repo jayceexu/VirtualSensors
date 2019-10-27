@@ -70,6 +70,7 @@ public class SensorFragment extends Fragment implements
     private boolean mEmpty;
     private long cnt = 1;
     private String mMessage = "";
+    private static long statID = 1; // for statistics purposes,
 
     private boolean sampleGyro = false;
     private boolean sampleAccel = false;
@@ -179,9 +180,12 @@ public class SensorFragment extends Fragment implements
         float ay = event.values[1];
         float az = event.values[2];
         String msg = "";
-        Log.i(TAG, "Sensor type " + event.sensor.getType());
+        statID++;
+        // The schema of msg is: [sensor_type]:[uniq_statID],[data1],[data2],...,@
+        //
         if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
-            msg += "ambient:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            msg += "ambient:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            //Log.i("XUJAY_MM", "ambient:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
         }
         if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
             geomag = event.values.clone();
@@ -197,17 +201,19 @@ public class SensorFragment extends Fragment implements
                     "\u00E2z: "+ String.valueOf(az)+"\n"+
                     "\u00E2Net: "+ String.valueOf(af)
             );
-            msg += "accel:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            msg += "accel:" + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            //Log.i("XUJAY_MM", "accel:" + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
         }
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE && sampleGyro) {
             float gf = (float) Math.sqrt(Math.pow(ax, 2)+ Math.pow(ay, 2)+ Math.pow(az, 2));
             mGyroscope.setText("\nGyroscope :"+"\n"+
                     "\u03A9x: "+ String.valueOf(ax)+"\n"+
                     "\u03A9y: "+ String.valueOf(ay)+"\n"+
-                    "\u03A9z: "+ String.valueOf(az)+"\n"
+                     "\u03A9z: "+ String.valueOf(az)+"\n"
             );
             // TODO: add this line to support gyro
-            msg += "gyro:" + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            msg += "gyro:" + statID + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            //Log.i("XUJAY_MM", "gyro:" + statID + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
         }
 
 
@@ -321,48 +327,5 @@ public class SensorFragment extends Fragment implements
             vibrateThread.start();
         }
     }
-
-    // Alternative way to create socket for TCP client
-    private void sendMessage(final String msg) {
-
-        final Handler handler = new Handler();
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-
-                try {
-                    //Replace below IP with the IP of that device in which server socket open.
-                    //If you change port then change the port number in the server side code also.
-                    Socket s = new Socket("192.168.1.3", 14400);
-
-                    OutputStream out = s.getOutputStream();
-
-                    PrintWriter output = new PrintWriter(out);
-
-                    output.println(msg);
-                    output.flush();
-                    BufferedReader input = new BufferedReader(new InputStreamReader(s.getInputStream()));
-                    final String st = input.readLine();
-
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            Log.i(TAG, "Msg from Server : " + st);
-                        }
-                    });
-
-                    output.close();
-                    out.close();
-                    s.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-
-        thread.start();
-    }
-
 
 }
