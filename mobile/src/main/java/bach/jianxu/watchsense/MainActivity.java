@@ -21,6 +21,11 @@ import android.widget.EditText;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import static java.util.Arrays.asList;
+
 public class MainActivity extends Activity {
 
     private static String TAG = "WatchSense";
@@ -38,6 +43,21 @@ public class MainActivity extends Activity {
         recordBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+//                ArrayList<ArrayList<Float>> X = new ArrayList<>();
+//                X.add(new ArrayList<>(asList(110f, 40f)));
+//                X.add(new ArrayList<>(asList(120f, 30f)));
+//                X.add(new ArrayList<>(asList(100f, 20f)));
+//
+//                X.add(new ArrayList<>(asList(90f, 0f)));
+//                X.add(new ArrayList<>(asList(80f, 10f)));
+//
+//
+//                ArrayList<Float> Y = new ArrayList<>(asList(100f, 90f, 80f, 70f, 60f));
+//                LinearRegression mlr = new LinearRegression(X, Y);
+//                mlr.fit();
+//                ArrayList<Float> parameter = new ArrayList<>(asList(110f, 40f));
+//                Log.d(TAG, "result " + mlr.predict(parameter));
+
                 String gestureName = gestureTxt.getText() != null ? gestureTxt.getText().toString() : "default";
                 if (Shell.isSuAvailable()) {
                     String fname = "/sdcard/temp/recorded_gesture_"
