@@ -11,7 +11,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
 
-import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
+//import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 
 import java.util.Arrays;
 import java.util.concurrent.Semaphore;
@@ -52,7 +52,7 @@ public class MotionDetector {
 	private final float[] filteredData = new float[GESTURE_SAMPLES * NUM_CHANNELS];
 	public int dataPos = 0;
 
-	private TensorFlowInferenceInterface inferenceInterface;
+	//private TensorFlowInferenceInterface inferenceInterface;
 	private HandlerThread sensorHandlerThread;
 	private Handler sensorHandler;
 
@@ -118,9 +118,9 @@ public class MotionDetector {
 	}
 
 	private void loadTensorflow() {
-		if (inferenceInterface == null) {
-			inferenceInterface = new TensorFlowInferenceInterface(context.getAssets(), MODEL_FILENAME);
-		}
+//		if (inferenceInterface == null) {
+//			inferenceInterface = new TensorFlowInferenceInterface(context.getAssets(), MODEL_FILENAME);
+//		}
 	}
 
 	private void getAccelerometerSensor() throws Exception {
@@ -181,9 +181,9 @@ public class MotionDetector {
 
 		filterData(recognData, filteredData);
 
-		inferenceInterface.feed(INPUT_NODE, filteredData, INPUT_SIZE);
-		inferenceInterface.run(OUTPUT_NODES);
-		inferenceInterface.fetch(OUTPUT_NODE, outputScores);
+//		inferenceInterface.feed(INPUT_NODE, filteredData, INPUT_SIZE);
+//		inferenceInterface.run(OUTPUT_NODES);
+//		inferenceInterface.fetch(OUTPUT_NODE, outputScores);
 
 		// there values are mutually exclusive (i.e. leftProbability + rightProbability = 1)
 		float leftProbability = outputScores[0]; // 0..1

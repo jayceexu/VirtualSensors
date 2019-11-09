@@ -156,9 +156,11 @@ public class MultipleLinearRegression {
     public ArrayList<ArrayList<Double>> convert(ArrayList<ArrayList<Double>> matrix) {
         int n = matrix.size();
         ArrayList<ArrayList<Double>> res = new ArrayList<>(n);
+        if (m_x_regressor == null)
+            return res;
         for (int i = 0; i < n; i++) {
             ArrayList<Double> tuple = new ArrayList<>(3);
-            double v =  m_x_regressor.beta(0) + m_x_regressor.beta(1) * matrix.get(i).get(0)
+                        double v =  m_x_regressor.beta(0) + m_x_regressor.beta(1) * matrix.get(i).get(0)
                                             + m_x_regressor.beta(2) * matrix.get(i).get(0)
                                             + m_x_regressor.beta(3) * matrix.get(i).get(0);
             tuple.add(v);

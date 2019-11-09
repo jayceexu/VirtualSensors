@@ -8,6 +8,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Vibrator;
@@ -18,7 +19,11 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
+import androidx.annotation.WorkerThread;
+
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.MessageApi;
@@ -33,7 +38,12 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static android.content.Context.VIBRATOR_SERVICE;
@@ -48,6 +58,8 @@ public class SensorFragment extends Fragment implements
     private static final int SHAKE_WAIT_TIME_MS = 250;
     private static final float ROTATION_THRESHOLD = 2.0f;
     private static final int ROTATION_WAIT_TIME_MS = 100;
+
+    private static float mProximity = 100;  //initial value for proximity sensor, for dedup
 
     private GoogleApiClient mGoogleApiClient;
     private static final String TAG = "WatchSense";
@@ -68,7 +80,6 @@ public class SensorFragment extends Fragment implements
 
     private static Activity mAct;
     private boolean mEmpty;
-    private long cnt = 1;
     private String mMessage = "";
     private static long statID = 1; // for statistics purposes,
 
@@ -76,7 +87,11 @@ public class SensorFragment extends Fragment implements
     private boolean sampleAccel = false;
     private boolean sampleAmbient = false;
 
+    BlockingQueue mSharedQueue = new LinkedBlockingQueue<String>();
+    private Thread mConsumer = new Thread(new Consumer(mSharedQueue));
+
     private Vibrator mVibrator;
+
 
     public static SensorFragment newInstance(int sensorType, Activity ap) {
         SensorFragment f = new SensorFragment();
@@ -88,6 +103,7 @@ public class SensorFragment extends Fragment implements
         mAct = ap;
         return f;
     }
+
 
     // Should use Thread instead of AsyncTask as this is a long turn workload
     private Thread mThread = new Thread(new Runnable() {
@@ -138,6 +154,7 @@ public class SensorFragment extends Fragment implements
         mVibrator = (Vibrator) getActivity().getSystemService(VIBRATOR_SERVICE);
 
         mThread.start();
+        mConsumer.start();
     }
 
     @Override
@@ -155,7 +172,7 @@ public class SensorFragment extends Fragment implements
     public void onResume() {
         super.onResume();
         mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
-        //mSensorManager.registerListener(this, mSensorAll, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mSensorAll, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mSensor2, SensorManager.SENSOR_DELAY_NORMAL);
 
     }
@@ -181,36 +198,48 @@ public class SensorFragment extends Fragment implements
         float az = event.values[2];
         String msg = "";
         statID++;
-        // The schema of msg is: [sensor_type]:[uniq_statID],[data1],[data2],...,@
-        //
+        /**
+         * The schema of msg is: [sensor_type]:[uniq_statID],[data1],[data2],...,@
+        */
         if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
-            msg += "ambient:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
-            //Log.i("XUJAY_MM", "ambient:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
-        }
-        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-            geomag = event.values.clone();
-        }
+            /**
+             * Light sensor needs to transfer immediately, without batching
+             * This design is to deduplicate data, otherwise the proximity data will be noisy
+             *  value:5 is enough for proximity distance
+             * */
+            ax = ax>= 5 ? 5: 0;
+            if (ax == mProximity) return;
+            mProximity = ax;
+            //msg += "proximity:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            Log.i("XUJAY_MM", "proximity:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
 
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+            geomag = event.values.clone();
+
+        } else if (event.sensor.getType() == Sensor.TYPE_PROXIMITY) {
+            // TODO: So far no smartwatch does have proximity sensor
+            Log.i("XUJAY_MM", "proximity:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
+
+        }  else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             gravity = event.values.clone();
 
             float af = (float) Math.sqrt(Math.pow(ax, 2)+ Math.pow(ay, 2)+ Math.pow(az, 2));
-            mAccelero.setText("\nAccelerometer :"+"\n"+
+            /*mAccelero.setText("\nAccelerometer :"+"\n"+
                     "\u00E2x: "+ String.valueOf(ax)+"\n"+
                     "\u00E2y: "+ String.valueOf(ay)+"\n"+
                     "\u00E2z: "+ String.valueOf(az)+"\n"+
                     "\u00E2Net: "+ String.valueOf(af)
-            );
+            );*/
             msg += "accel:" + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
             //Log.i("XUJAY_MM", "accel:" + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
-        }
-        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE && sampleGyro) {
+
+        } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE && sampleGyro) {
             float gf = (float) Math.sqrt(Math.pow(ax, 2)+ Math.pow(ay, 2)+ Math.pow(az, 2));
-            mGyroscope.setText("\nGyroscope :"+"\n"+
+            /*mGyroscope.setText("\nGyroscope :"+"\n"+
                     "\u03A9x: "+ String.valueOf(ax)+"\n"+
                     "\u03A9y: "+ String.valueOf(ay)+"\n"+
                      "\u03A9z: "+ String.valueOf(az)+"\n"
-            );
+            );*/
             // TODO: add this line to support gyro
             msg += "gyro:" + statID + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
             //Log.i("XUJAY_MM", "gyro:" + statID + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
@@ -232,30 +261,20 @@ public class SensorFragment extends Fragment implements
                         + ", roll: " + roll);
             }
         }
-        if (msg.equalsIgnoreCase(""))
-            return;
+        if (msg.equalsIgnoreCase("")) return;
+
+        //sendMessage(WEAR_MESSAGE_PATH, msg);
+        // TODO: needs to distinguish with high-freq sensors with low-freq sensors, eg. accel vs proximity
         mMessage += msg;
-        if (event.sensor.getType() == Sensor.TYPE_LIGHT || cnt++ % 8 == 0) {
-            Log.i(TAG, "onSensorChanged..." + mMessage);
-            sendMessage(WEAR_MESSAGE_PATH, mMessage);
+        if (statID % 3 == 0) {
+            try {
+                mSharedQueue.put(mMessage);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
             mMessage = "";
         }
-
-//        try {
-//
-//            if (mEmpty) {
-//                Log.i(TAG, "putting message into the queue...");
-//                mQueue.put(msg);
-//                if (mQueue.size() > 2)
-//                    mEmpty = false;
-//            } else {
-//                Log.i(TAG, "size is over 30...");
-//                //sendMessage(WEAR_MESSAGE_PATH, msg);
-//
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
 
 //        if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
 //            detectShake(event);
@@ -271,6 +290,7 @@ public class SensorFragment extends Fragment implements
     }
 
     private void sendMessage(final String path, final String text) {
+        Log.i(TAG, "Sending message: " + text);
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -283,6 +303,30 @@ public class SensorFragment extends Fragment implements
             }
         }).start();
     }
+
+    class Consumer implements Runnable{
+
+        private final BlockingQueue sharedQueue;
+
+        public Consumer (BlockingQueue sharedQueue) {
+            this.sharedQueue = sharedQueue;
+        }
+
+        @Override
+        public void run() {
+            while(true){
+                try {
+                    String msg = "" + sharedQueue.take();
+                    Collection<String> nodes = getNodes();
+                    for (String node : nodes)  sendStartActivityMessage(node, msg);
+
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }
+    }
+
 
     @Override
     public void onConnected(Bundle bundle) {
@@ -327,5 +371,65 @@ public class SensorFragment extends Fragment implements
             vibrateThread.start();
         }
     }
+
+
+
+    private class StartWearableActivityTask extends AsyncTask<String, Void, Void> {
+
+        @Override
+        protected Void doInBackground(String... args) {
+            Collection<String> nodes = getNodes();
+            for (String node : nodes) {
+                sendStartActivityMessage(node, args[0]);
+            }
+            return null;
+        }
+    }
+
+    @WorkerThread
+    private Collection<String> getNodes() {
+        HashSet<String> results = new HashSet<>();
+
+        Task<List<Node>> nodeListTask =
+                Wearable.getNodeClient(mAct).getConnectedNodes();
+
+        try {
+            // Block on a task and get the result synchronously (because this is on a background
+            // thread).
+            List<Node> nodes = Tasks.await(nodeListTask);
+
+            for (Node node : nodes) {
+                //Log.d(TAG, "getNodes " + node.getDisplayName() + ", geId " + node.getId() );
+                results.add(node.getId());
+            }
+
+        } catch (ExecutionException exception) {
+            Log.e(TAG, "Task failed: " + exception);
+
+        } catch (InterruptedException exception) {
+            Log.e(TAG, "Interrupt occurred: " + exception);
+        }
+        return results;
+    }
+
+    @WorkerThread
+    private void sendStartActivityMessage(String node, String data) {
+        String msg = data;
+        Log.i(TAG, "Sending message: " + msg);
+        Task<Integer> sendMessageTask =
+                Wearable.getMessageClient(mAct).sendMessage(node, WEAR_MESSAGE_PATH, msg.getBytes());
+        try {
+            // Block on a task and get the result synchronously (because this is on a background
+            // thread).
+            Integer result = Tasks.await(sendMessageTask);
+            //Log.d(TAG, "Message sent: " + result);
+        } catch (ExecutionException exception) {
+            Log.e(TAG, "Task failed: " + exception);
+
+        } catch (InterruptedException exception) {
+            Log.e(TAG, "Interrupt occurred: " + exception);
+        }
+    }
+
 
 }

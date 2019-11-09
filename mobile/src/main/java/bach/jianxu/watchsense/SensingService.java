@@ -29,6 +29,7 @@ import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
+import com.google.android.gms.wearable.WearableListenerService;
 
 import org.xmlpull.v1.XmlPullParser;
 
@@ -99,10 +100,10 @@ public class SensingService extends Service implements
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        mAllSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
+        //mAllSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
 
         mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerListener(this, mAllSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        //mSensorManager.registerListener(this, mAllSensor, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
                 SensorManager.SENSOR_DELAY_NORMAL);
         empty = true;
@@ -186,7 +187,6 @@ public class SensingService extends Service implements
 
         private void sendMsgToLocalServer(String msg) {
             try {
-
                 if (msg != null) {
                     Log.d("XUJAY_TCP", "poping up the message " + msg + ", size:" + mLocal.size());
                     mSocket = new Socket("127.0.0.1", 14400);
@@ -205,10 +205,10 @@ public class SensingService extends Service implements
         }
 
         private String applyMetaprogram(String msg, Metaprogram meta) {
-            // msg format "accel:-8.9761505,0.61755913,2.8101335,"
+            // msg format "accel:323,-8.9761505,0.61755913,2.8101335,"
 
             String[] msgs = msg.split(",");
-            if (msgs.length != 3) return "";
+            if (msgs.length != 4) return "";
             String[] headers = msgs[0].split(":");
             if (headers.length != 2) return "";
 
@@ -240,49 +240,38 @@ public class SensingService extends Service implements
 //            if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
             //msg = typeStr+":" + mCoordinates.get(0)+","+mCoordinates.get(1)+","+mCoordinates.get(2)+",";
 
-            msg = typeStr +":" + x + "," + y+ "," + z + ",";
-            Log.d(TAG, "message: " + msg);
+            //msg = typeStr +":" + x + "," + y+ "," + z + ",";
+            //Log.d("XUJAY_MM", "recev_message: " + msg);
 
-            if (remoteMatrix.size() < MATRIX_SIZE) {
-                ArrayList<Double> tuple = new ArrayList<>();
-                tuple.add(x);
-                tuple.add(y);
-                tuple.add(z);
-                remoteMatrix.add(tuple);
-            } else if (remoteMatrix.size() == MATRIX_SIZE) {
-                mMultipleLinearRegression.calibrate(remoteMatrix, localMatrix);
-                ArrayList<Double> tuple = new ArrayList<>();
-                tuple.add(x);
-                tuple.add(y);
-                tuple.add(z);
-                remoteMatrix.add(tuple);
-                Log.i(TAG, "Finished mMultipleLinearRegression");
-            } else {
-                // Now converting the real data
-                ArrayList<ArrayList<Double>> arr = new ArrayList<>();
-                ArrayList<Double> tuple = new ArrayList<>();
-                tuple.add(x); tuple.add(y); tuple.add(z);
-                arr.add(tuple);
-                ArrayList<ArrayList<Double>> output = mMultipleLinearRegression.convert(arr);
-                if (output.size() < 1) return "";
-                //msg = typeStr+":" + output.get(0).get(0)+","+output.get(0).get(1)+","+output.get(0).get(2)+",";
-            }
+//            if (remoteMatrix.size() < MATRIX_SIZE) {
+//                ArrayList<Double> tuple = new ArrayList<>();
+//                tuple.add(x);
+//                tuple.add(y);
+//                tuple.add(z);
+//                remoteMatrix.add(tuple);
+//                Log.i(TAG, "Calibrating remoteMatrix size " + remoteMatrix.size()
+//                                + ", x, y, z: " + x + " " + y + " " + z);
+//            } else if (remoteMatrix.size() == MATRIX_SIZE) {
+//                mMultipleLinearRegression.calibrate(remoteMatrix, localMatrix);
+//                ArrayList<Double> tuple = new ArrayList<>();
+//                tuple.add(x);
+//                tuple.add(y);
+//                tuple.add(z);
+//                remoteMatrix.add(tuple);
+//                Log.i(TAG, "Finished mMultipleLinearRegression");
+//            } else {
+//                // Now converting the real data
+//                ArrayList<ArrayList<Double>> arr = new ArrayList<>();
+//                ArrayList<Double> tuple = new ArrayList<>();
+//                tuple.add(x); tuple.add(y); tuple.add(z);
+//                arr.add(tuple);
+//                ArrayList<ArrayList<Double>> output = mMultipleLinearRegression.convert(arr);
+//                if (output.size() < 1) return "";
+//                //msg = typeStr+":" + output.get(0).get(0)+","+output.get(0).get(1)+","+output.get(0).get(2)+",";
+//            }
 
             Log.i(TAG, "Calibrating remoteMatrix size " + remoteMatrix.size());
             return msg;
-            // Calibrating based on watch motion
-//            if (calibrating < 1000) {
-//                calibrating++;
-//                calix.add(x); caliy.add(y); caliz.add(z);
-//                return "";
-//            } else if (calibrating == 1000){
-//                double cx = average(calix), cy = average(caliy), cz = average(caliz);
-//                Log.i(TAG, "Calibrated " + cx + ", " + cy + " , " + cz);
-//                meta.data.get(typeStr).set(0, -cx);
-//                meta.data.get(typeStr).set(1, -cy);
-//                meta.data.get(typeStr).set(2, -cz);
-//                calibrating = 1001;
-//            }
         }
 
     });
@@ -497,7 +486,6 @@ public class SensingService extends Service implements
         switch (sensorEvent.sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
                 gravity = sensorEvent.values.clone();
-                Log.i(TAG, "Calibrating localMatrix size " + remoteMatrix.size());
                 if (localMatrix.size() >= MATRIX_SIZE) return;
                 double ax = sensorEvent.values[0];
                 double ay = sensorEvent.values[1];
@@ -505,6 +493,8 @@ public class SensingService extends Service implements
                 ArrayList<Double> tuple = new ArrayList<>();
                 tuple.add(ax); tuple.add(ay); tuple.add(az);
                 localMatrix.add(tuple);
+                Log.i(TAG, "Calibrating localMatrix size " + localMatrix.size()
+                        + ", x, y, z: " + ax + " " + ay + " " + az);
                 break;
             case Sensor.TYPE_MAGNETIC_FIELD:
                 geomag = sensorEvent.values.clone();
@@ -585,4 +575,6 @@ public class SensingService extends Service implements
             }
         }
     }
+
+
 }
