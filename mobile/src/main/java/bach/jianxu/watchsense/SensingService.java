@@ -85,9 +85,12 @@ public class SensingService extends Service implements
 
     private final int MATRIX_SIZE = 100;
     private MotionDetector mMotionDetector;
-    private MultipleLinearRegression mMultipleLinearRegression;
     private ArrayList<ArrayList<Double>> localMatrix = new ArrayList<>(MATRIX_SIZE);
     private ArrayList<ArrayList<Double>> remoteMatrix = new ArrayList<>(MATRIX_SIZE);
+
+    private LinearRegression mLRx;
+    private LinearRegression mLRy;
+    private LinearRegression mLRz;
 
     @SuppressLint("HandlerLeak")
     @Override
@@ -115,7 +118,7 @@ public class SensingService extends Service implements
 
         loadMetaprogram();
         mMotionDetector = new MotionDetector(this, gestureListener);
-        mMultipleLinearRegression = new MultipleLinearRegression();
+
         try {
             mMotionDetector.start();
         } catch (Exception e) {
@@ -238,43 +241,60 @@ public class SensingService extends Service implements
 //            }
 //            // run recognition if recognition thread is available
 //            if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
-            //msg = typeStr+":" + mCoordinates.get(0)+","+mCoordinates.get(1)+","+mCoordinates.get(2)+",";
 
-            //msg = typeStr +":" + x + "," + y+ "," + z + ",";
-            //Log.d("XUJAY_MM", "recev_message: " + msg);
-
-//            if (remoteMatrix.size() < MATRIX_SIZE) {
-//                ArrayList<Double> tuple = new ArrayList<>();
-//                tuple.add(x);
-//                tuple.add(y);
-//                tuple.add(z);
-//                remoteMatrix.add(tuple);
-//                Log.i(TAG, "Calibrating remoteMatrix size " + remoteMatrix.size()
-//                                + ", x, y, z: " + x + " " + y + " " + z);
-//            } else if (remoteMatrix.size() == MATRIX_SIZE) {
-//                mMultipleLinearRegression.calibrate(remoteMatrix, localMatrix);
-//                ArrayList<Double> tuple = new ArrayList<>();
-//                tuple.add(x);
-//                tuple.add(y);
-//                tuple.add(z);
-//                remoteMatrix.add(tuple);
-//                Log.i(TAG, "Finished mMultipleLinearRegression");
-//            } else {
-//                // Now converting the real data
-//                ArrayList<ArrayList<Double>> arr = new ArrayList<>();
-//                ArrayList<Double> tuple = new ArrayList<>();
-//                tuple.add(x); tuple.add(y); tuple.add(z);
-//                arr.add(tuple);
-//                ArrayList<ArrayList<Double>> output = mMultipleLinearRegression.convert(arr);
-//                if (output.size() < 1) return "";
-//                //msg = typeStr+":" + output.get(0).get(0)+","+output.get(0).get(1)+","+output.get(0).get(2)+",";
-//            }
-
-            Log.i(TAG, "Calibrating remoteMatrix size " + remoteMatrix.size());
+            applyAraniMatrix(x, y, z);
             return msg;
         }
 
     });
+
+    private void applyAraniMatrix(double x, double y, double z) {
+        if (remoteMatrix.size() < MATRIX_SIZE) {
+            ArrayList<Double> tuple = new ArrayList<>();
+            tuple.add(x);
+            tuple.add(y);
+            tuple.add(z);
+            remoteMatrix.add(tuple);
+            Log.i(TAG, "Calibrating remoteMatrix size " + remoteMatrix.size()
+                    + ", x, y, z: " + x + " " + y + " " + z);
+        } else if (remoteMatrix.size() == MATRIX_SIZE) {
+
+            ArrayList<Double> matrixX = new ArrayList<>();
+            ArrayList<Double> matrixY = new ArrayList<>();
+            ArrayList<Double> matrixZ = new ArrayList<>();
+            for (int i = 0; i < MATRIX_SIZE; i++) {
+                ArrayList<Double> item = localMatrix.get(i);
+                matrixX.add(item.get(0));
+                matrixY.add(item.get(1));
+                matrixZ.add(item.get(2));
+            }
+            mLRx = new LinearRegression(remoteMatrix, matrixX);
+            mLRy = new LinearRegression(remoteMatrix, matrixY);
+            mLRz = new LinearRegression(remoteMatrix, matrixZ);
+
+            mLRx.fit();
+            mLRy.fit();
+            mLRz.fit();
+
+            ArrayList<Double> tuple = new ArrayList<>(); // add dummy data for non-use
+            tuple.add(x); tuple.add(y); tuple.add(z);
+            remoteMatrix.add(tuple);
+            Log.i(TAG, "Finished mMultipleLinearRegression");
+        } else {
+            // Now converting the real data
+            ArrayList<Double> input = new ArrayList<>();
+            input.add(x); input.add(y); input.add(z);
+
+            double nx = mLRx.predict(input);
+            double ny = mLRy.predict(input);
+            double nz = mLRz.predict(input);
+
+            //msg = typeStr+":" + output.get(0).get(0)+","+output.get(0).get(1)+","+output.get(0).get(2)+",";
+            Log.i(TAG, "Calibrating remoteMatrix size " + nx + ", " + ny + ", " + nz);
+        }
+
+        Log.i(TAG, "Calibrating remoteMatrix size " + remoteMatrix.size());
+    }
 
     private final MotionDetector.Listener gestureListener = new MotionDetector.Listener() {
         @Override

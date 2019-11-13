@@ -43,29 +43,7 @@ public class MainActivity extends Activity {
         recordBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                ArrayList<ArrayList<Float>> X = new ArrayList<>();
-//                X.add(new ArrayList<>(asList(110f, 40f)));
-//                X.add(new ArrayList<>(asList(120f, 30f)));
-//                X.add(new ArrayList<>(asList(100f, 20f)));
-//
-//                X.add(new ArrayList<>(asList(90f, 0f)));
-//                X.add(new ArrayList<>(asList(80f, 10f)));
-//
-//
-//                ArrayList<Float> Y = new ArrayList<>(asList(100f, 90f, 80f, 70f, 60f));
-//                LinearRegression mlr = new LinearRegression(X, Y);
-//                mlr.fit();
-//                ArrayList<Float> parameter = new ArrayList<>(asList(110f, 40f));
-//                Log.d(TAG, "result " + mlr.predict(parameter));
-
-                String gestureName = gestureTxt.getText() != null ? gestureTxt.getText().toString() : "default";
-                if (Shell.isSuAvailable()) {
-                    String fname = "/sdcard/temp/recorded_gesture_"
-                            + gestureName.trim().replaceAll(" ", "_").toLowerCase() + ".txt";
-                    String command = "/data/local/tmp/getevent -t /dev/input/event1 > " + fname;
-                    Log.d(TAG, "Command is: " + command);
-                    Shell.runCommand(command);
-                }
+                recordGestures(gestureTxt.getText() != null ? gestureTxt.getText().toString() : "default");
             }
         });
 
@@ -74,6 +52,19 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick() happens");
+                ArrayList<ArrayList<Double>> X = new ArrayList<>();
+                X.add(new ArrayList<>(asList(110.0, 40.0, 50.0)));
+                X.add(new ArrayList<>(asList(120.0, 30.0, 40.0)));
+                X.add(new ArrayList<>(asList(100.0, 20.0, 60.0)));
+                X.add(new ArrayList<>(asList(90.0, 0.0, 30.0)));
+                X.add(new ArrayList<>(asList(80.0, 10.0, 20.0)));
+
+                ArrayList<Double> Y = new ArrayList<>(asList(100.0, 90.0, 80.0, 70.0, 60.0));
+                LinearRegression mlr = new LinearRegression(X, Y);
+                mlr.fit();
+                ArrayList<Double> parameter = new ArrayList<>(asList(110.0, 40.0, 50.0));
+                Log.d(TAG, "result " + mlr.predict(parameter));
+
                 Message msg = Message.obtain(null, 1, 0, 0);
                 try {
                     mService.send(msg);
@@ -85,6 +76,16 @@ public class MainActivity extends Activity {
                 Context.BIND_AUTO_CREATE);
         //startService(aint);
         checkPermissions();
+    }
+
+    private void recordGestures(String gestureName) {
+        if (Shell.isSuAvailable()) {
+            String fname = "/sdcard/temp/recorded_gesture_"
+                    + gestureName.trim().replaceAll(" ", "_").toLowerCase() + ".txt";
+            String command = "/data/local/tmp/getevent -t /dev/input/event1 > " + fname;
+            Log.d(TAG, "Command is: " + command);
+            Shell.runCommand(command);
+        }
     }
 
     /**
