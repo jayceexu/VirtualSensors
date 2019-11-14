@@ -36,6 +36,7 @@ import org.xmlpull.v1.XmlPullParser;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -62,28 +63,23 @@ public class SensingService extends Service implements
     final static String TAG = "WatchSense";
     private GoogleApiClient mGoogleApiClient;
     private static SensorManager mSensorManager;
-    private Sensor mAllSensor;
     private LinkedBlockingQueue<String> mQueue = new LinkedBlockingQueue<>(100);
 
     private static final String MESSAGE = "/message";
-    private static final String SEPARATOR = "||";
     private static int id = 1;
-    private static int MAX_SIZE = 50000;
     private static Sensor mSensor;
+    private Sensor mAllSensor;
 
     private ServerSocket mServerSocket;
     private Thread mServerThread;
 
     private boolean empty;
-    private int calibrating = 0;
-    private ArrayList<Double> calix = new ArrayList<>();
-    private ArrayList<Double> caliy = new ArrayList<>();
-    private ArrayList<Double> caliz = new ArrayList<>();
+
     private ArrayList<Double> mCoordinates = new ArrayList<>(Arrays.asList(0.0, 0.0, 0.0));
     private boolean mInitCoordinate = false;
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
 
-    private final int MATRIX_SIZE = 100;
+    private final int MATRIX_SIZE = 2;
     private MotionDetector mMotionDetector;
     private ArrayList<ArrayList<Double>> localMatrix = new ArrayList<>(MATRIX_SIZE);
     private ArrayList<ArrayList<Double>> remoteMatrix = new ArrayList<>(MATRIX_SIZE);
@@ -103,12 +99,16 @@ public class SensingService extends Service implements
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+
+        /**
+         * Caution: this local sensing might cause conflicts with SenseWear's remote sensors
+         */
         //mAllSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ALL);
 
-        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        //mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
         //mSensorManager.registerListener(this, mAllSensor, SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
-                SensorManager.SENSOR_DELAY_NORMAL);
+//        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+//                SensorManager.SENSOR_DELAY_NORMAL);
         empty = true;
 
         //new AThread().execute();
@@ -139,9 +139,30 @@ public class SensingService extends Service implements
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case 1:
-                    Log.i(TAG, "Handling message from the Activity");
-                    calibrating = 0;
-                    calix.clear(); caliy.clear(); caliz.clear();
+                    ArrayList<ArrayList<Double>> phone = readData("phone.data");
+                    Log.i(TAG, "Handling message from the Activity " + phone.size());
+
+                    ArrayList<ArrayList<Double>> watch = readData("watch.data");
+                    Log.i(TAG, "Handling message from the Activity " + watch.size());
+
+                    ArrayList<Double> matrixX = new ArrayList<>();
+                    ArrayList<Double> matrixY = new ArrayList<>();
+                    ArrayList<Double> matrixZ = new ArrayList<>();
+
+                    for (int i = 0; i < Math.min(phone.size(), watch.size()); i++) {
+                        ArrayList<Double> item = phone.get(i);
+                        matrixX.add(item.get(0));
+                        matrixY.add(item.get(1));
+                        matrixZ.add(item.get(2));
+                    }
+                    mLRx = new LinearRegression(watch, matrixX);
+                    mLRy = new LinearRegression(watch, matrixY);
+                    mLRz = new LinearRegression(watch, matrixZ);
+
+                    mLRx.fit();
+                    mLRy.fit();
+                    mLRz.fit();
+
                     break;
                 default:
                     super.handleMessage(msg);
@@ -224,12 +245,12 @@ public class SensingService extends Service implements
             // String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
             // Log.i(TAG, "applyMetaprogram " + calibratedMsg);
             // return calibratedMsg;
-            if (!mInitCoordinate) {
-                mInitCoordinate = true;
-                mCoordinates.set(0, x);
-                mCoordinates.set(1, y);
-                mCoordinates.set(2, z);
-            }
+//            if (!mInitCoordinate) {
+//                mInitCoordinate = true;
+//                mCoordinates.set(0, x);
+//                mCoordinates.set(1, y);
+//                mCoordinates.set(2, z);
+//            }
 
 //            synchronized (mMotionDetector.recordingData) {
 //                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)x / mMotionDetector.DATA_NORMALIZATION_COEF;
@@ -242,58 +263,64 @@ public class SensingService extends Service implements
 //            // run recognition if recognition thread is available
 //            if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
 
-            applyAraniMatrix(x, y, z);
+
+            /**
+             * For rotation
+             */
+//            ArrayList<Double> res = applyAraniMatrix(x, y, z);
+//            if (res.size() == 3) {
+//                msg = msgs[0] + "," + res.get(0) + "," + res.get(1) + "," + res.get(2) + ",";
+//            }
             return msg;
         }
-
     });
 
-    private void applyAraniMatrix(double x, double y, double z) {
-        if (remoteMatrix.size() < MATRIX_SIZE) {
-            ArrayList<Double> tuple = new ArrayList<>();
-            tuple.add(x);
-            tuple.add(y);
-            tuple.add(z);
-            remoteMatrix.add(tuple);
-            Log.i(TAG, "Calibrating remoteMatrix size " + remoteMatrix.size()
-                    + ", x, y, z: " + x + " " + y + " " + z);
-        } else if (remoteMatrix.size() == MATRIX_SIZE) {
+    public ArrayList<ArrayList<Double>> readData(String fname) {
+        ArrayList<ArrayList<Double>> res = new ArrayList<>();
+        try {
+            File SDCardRoot = Environment.getExternalStorageDirectory()
+                    .getAbsoluteFile();
+            File myDir = new File(SDCardRoot.getAbsolutePath() + "/temp/");
+            File file = new File(myDir, fname);
+            InputStream is = new FileInputStream(file.getPath());
 
-            ArrayList<Double> matrixX = new ArrayList<>();
-            ArrayList<Double> matrixY = new ArrayList<>();
-            ArrayList<Double> matrixZ = new ArrayList<>();
-            for (int i = 0; i < MATRIX_SIZE; i++) {
-                ArrayList<Double> item = localMatrix.get(i);
-                matrixX.add(item.get(0));
-                matrixY.add(item.get(1));
-                matrixZ.add(item.get(2));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            String line = reader.readLine();
+            while (line != null) {
+                Log.d(TAG, line);
+                // read next line
+                line = reader.readLine();
+                if (line == null) break;
+                ArrayList<Double> fields = new ArrayList<>();
+                String arr[] = line.split(" ");
+                fields.add(Double.parseDouble(arr[0]));
+                fields.add(Double.parseDouble(arr[1]));
+                fields.add(Double.parseDouble(arr[2]));
+                res.add(fields);
             }
-            mLRx = new LinearRegression(remoteMatrix, matrixX);
-            mLRy = new LinearRegression(remoteMatrix, matrixY);
-            mLRz = new LinearRegression(remoteMatrix, matrixZ);
-
-            mLRx.fit();
-            mLRy.fit();
-            mLRz.fit();
-
-            ArrayList<Double> tuple = new ArrayList<>(); // add dummy data for non-use
-            tuple.add(x); tuple.add(y); tuple.add(z);
-            remoteMatrix.add(tuple);
-            Log.i(TAG, "Finished mMultipleLinearRegression");
-        } else {
-            // Now converting the real data
-            ArrayList<Double> input = new ArrayList<>();
-            input.add(x); input.add(y); input.add(z);
-
-            double nx = mLRx.predict(input);
-            double ny = mLRy.predict(input);
-            double nz = mLRz.predict(input);
-
-            //msg = typeStr+":" + output.get(0).get(0)+","+output.get(0).get(1)+","+output.get(0).get(2)+",";
-            Log.i(TAG, "Calibrating remoteMatrix size " + nx + ", " + ny + ", " + nz);
+            reader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+        return res;
+    }
 
-        Log.i(TAG, "Calibrating remoteMatrix size " + remoteMatrix.size());
+
+    private ArrayList<Double> applyAraniMatrix(double x, double y, double z) {
+        ArrayList<Double> res = new ArrayList<>();
+
+        ArrayList<Double> input = new ArrayList<>();
+        input.add(x); input.add(y); input.add(z);
+
+        double nx = mLRx.predict(input);
+        double ny = mLRy.predict(input);
+        double nz = mLRz.predict(input);
+
+        res.add(nx); res.add(ny); res.add(nz);
+        //msg = typeStr+":" + output.get(0).get(0)+","+output.get(0).get(1)+","+output.get(0).get(2)+",";
+        Log.i(TAG, "Calibrating remoteMatrix  " + nx + ", " + ny + ", " + nz);
+
+        return res;
     }
 
     private final MotionDetector.Listener gestureListener = new MotionDetector.Listener() {
@@ -500,8 +527,6 @@ public class SensingService extends Service implements
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
         Log.i(TAG, "sampling from phone device");
-        // If the sensor data is unreliable return
-
         // Gets the value of the sensor that has been changed
         switch (sensorEvent.sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
@@ -536,6 +561,7 @@ public class SensingService extends Service implements
             }
         }
     }
+
 
     public class AExecutor implements Executor {
 
