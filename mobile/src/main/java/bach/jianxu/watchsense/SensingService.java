@@ -245,13 +245,14 @@ public class SensingService extends Service implements
             // String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
             // Log.i(TAG, "applyMetaprogram " + calibratedMsg);
             // return calibratedMsg;
+
+            // TODO: add recognition part
 //            if (!mInitCoordinate) {
 //                mInitCoordinate = true;
 //                mCoordinates.set(0, x);
 //                mCoordinates.set(1, y);
 //                mCoordinates.set(2, z);
 //            }
-
 //            synchronized (mMotionDetector.recordingData) {
 //                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)x / mMotionDetector.DATA_NORMALIZATION_COEF;
 //                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)y / mMotionDetector.DATA_NORMALIZATION_COEF;

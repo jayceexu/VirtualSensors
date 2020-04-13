@@ -11,7 +11,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
 
-//import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
+import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 
 import java.util.Arrays;
 import java.util.concurrent.Semaphore;
@@ -52,7 +52,7 @@ public class MotionDetector {
 	private final float[] filteredData = new float[GESTURE_SAMPLES * NUM_CHANNELS];
 	public int dataPos = 0;
 
-	//private TensorFlowInferenceInterface inferenceInterface;
+	private TensorFlowInferenceInterface inferenceInterface;
 	private HandlerThread sensorHandlerThread;
 	private Handler sensorHandler;
 
@@ -118,9 +118,9 @@ public class MotionDetector {
 	}
 
 	private void loadTensorflow() {
-//		if (inferenceInterface == null) {
-//			inferenceInterface = new TensorFlowInferenceInterface(context.getAssets(), MODEL_FILENAME);
-//		}
+		if (inferenceInterface == null) {
+			inferenceInterface = new TensorFlowInferenceInterface(context.getAssets(), MODEL_FILENAME);
+		}
 	}
 
 	private void getAccelerometerSensor() throws Exception {
@@ -157,12 +157,14 @@ public class MotionDetector {
 		public void run() {
 			while (true) {
 				try {
+					// TODO: add recognition
 					recognSemaphore.acquire();
 					processData();
-					Log.d("MotionDector", "processing recoginition data");
+					//Log.d("MotionDector", "processing recoginition data");
 					recognSemaphore.release();
 				}
-				catch (InterruptedException ignored) {
+				catch (Exception exp) {
+				    exp.printStackTrace();
 					break;
 				}
 			}
@@ -181,6 +183,7 @@ public class MotionDetector {
 
 		filterData(recognData, filteredData);
 
+		// TODO: add recognition
 //		inferenceInterface.feed(INPUT_NODE, filteredData, INPUT_SIZE);
 //		inferenceInterface.run(OUTPUT_NODES);
 //		inferenceInterface.fetch(OUTPUT_NODE, outputScores);

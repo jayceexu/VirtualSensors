@@ -93,6 +93,8 @@ public class SensorFragment extends Fragment implements
     private Vibrator mVibrator;
 
 
+    static private boolean FLAG_GAME = true;
+
     public static SensorFragment newInstance(int sensorType, Activity ap) {
         SensorFragment f = new SensorFragment();
 
@@ -210,17 +212,13 @@ public class SensorFragment extends Fragment implements
             ax = ax>= 5 ? 5: 0;
             if (ax == mProximity) return;
             mProximity = ax;
-            //msg += "proximity:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            msg += "proximity:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
             Log.i("XUJAY_MM", "proximity:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
 
         } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
             geomag = event.values.clone();
 
-        } else if (event.sensor.getType() == Sensor.TYPE_PROXIMITY) {
-            // TODO: So far no smartwatch does have proximity sensor
-            Log.i("XUJAY_MM", "proximity:" + + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
-
-        }  else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+        } else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             gravity = event.values.clone();
 
             float af = (float) Math.sqrt(Math.pow(ax, 2)+ Math.pow(ay, 2)+ Math.pow(az, 2));
@@ -231,6 +229,7 @@ public class SensorFragment extends Fragment implements
                     "\u00E2Net: "+ String.valueOf(af)
             );*/
             msg += "accel:" + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            // Warning: this log can slow down performance severely
             //Log.i("XUJAY_MM", "accel:" + statID + "," + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
 
         } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE && sampleGyro) {
@@ -241,7 +240,7 @@ public class SensorFragment extends Fragment implements
                      "\u03A9z: "+ String.valueOf(az)+"\n"
             );*/
             // TODO: add this line to support gyro
-            msg += "gyro:" + statID + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
+            //msg += "gyro:" + statID + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@";
             //Log.i("XUJAY_MM", "gyro:" + statID + String.valueOf(ax) + "," + String.valueOf(ay) + "," + String.valueOf(az) + ",@");
         }
 
@@ -266,7 +265,9 @@ public class SensorFragment extends Fragment implements
         //sendMessage(WEAR_MESSAGE_PATH, msg);
         // TODO: needs to distinguish with high-freq sensors with low-freq sensors, eg. accel vs proximity
         mMessage += msg;
-        if (statID % 3 == 0) {
+        int speed = FLAG_GAME ? 3 : 1;
+
+        if (statID % speed == 0) {
             try {
                 mSharedQueue.put(mMessage);
             } catch (Exception e) {
@@ -275,13 +276,6 @@ public class SensorFragment extends Fragment implements
 
             mMessage = "";
         }
-
-//        if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-//            detectShake(event);
-//        }
-//        else if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-//            detectRotation(event);
-//        }
     }
 
     @Override
