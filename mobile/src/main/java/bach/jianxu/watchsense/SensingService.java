@@ -78,6 +78,7 @@ public class SensingService extends Service implements
     private ArrayList<Double> mCoordinates = new ArrayList<>(Arrays.asList(0.0, 0.0, 0.0));
     private boolean mInitCoordinate = false;
     public ArrayList<Metaprogram> metaprograms = new ArrayList<>();
+    public MetaFunction func = new MetaFunction();
 
     private final int MATRIX_SIZE = 2;
     private MotionDetector mMotionDetector;
@@ -242,6 +243,12 @@ public class SensingService extends Service implements
             double x = Double.parseDouble(headers[1]);// + meta.data.get(typeStr).get(0);
             double y = Double.parseDouble(msgs[1]);// + meta.data.get(typeStr).get(1);
             double z = Double.parseDouble(msgs[2]);// + meta.data.get(typeStr).get(2);
+            Double watchData[] = new Double[3];
+
+            // This is for deep-customization
+            watchData[0] = x; watchData[1] = y; watchData[2] = z;
+            func.onSensorOverride(watchData);
+
             // String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
             // Log.i(TAG, "applyMetaprogram " + calibratedMsg);
             // return calibratedMsg;
