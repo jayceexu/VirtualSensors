@@ -5,10 +5,18 @@
     android:gravity="center"
     android:background="@color/black">
 
+    <Button
+        android:id="@+id/btn_calibrate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:text="@string/btn_value" />
+
     <TextView android:id="@+id/txt_accelero"
         android:layout_width="100dp"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
+        android:layout_below="@id/btn_calibrate"
         android:text="@string/init_values" />
 
     <TextView android:id="@+id/txt_gyroscope"

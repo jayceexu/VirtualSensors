@@ -167,6 +167,14 @@ public class SensorFragment extends Fragment implements
         mAccelero = mView.findViewById(R.id.txt_accelero);
         mGyroscope =  mView.findViewById(R.id.txt_gyroscope);
 
+        Button btn = mView.findViewById(R.id.btn_calibrate);
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.d(TAG, "Start collecting 60s sensor data for initial calibration");
+                // TODO: filling calibration buffer here
+            }
+        });
         return mView;
     }
 
