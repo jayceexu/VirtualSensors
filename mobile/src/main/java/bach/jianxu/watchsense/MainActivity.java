@@ -38,8 +38,8 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final EditText gestureTxt = (EditText) findViewById(R.id.gesture_txt);
-        Button recordBtn = (Button) findViewById(R.id.record_btn);
+        final EditText gestureTxt = findViewById(R.id.gesture_txt);
+        Button recordBtn = findViewById(R.id.record_btn);
         recordBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        Button btn = (Button) findViewById(R.id.calibration_btn);
+        Button btn = findViewById(R.id.calibration_btn);
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -78,6 +78,7 @@ public class MainActivity extends Activity {
         checkPermissions();
     }
 
+    // TODO: should support more shaking gestures, more than just screen touching
     private void recordGestures(String gestureName) {
         if (Shell.isSuAvailable()) {
             String fname = "/sdcard/temp/recorded_gesture_"

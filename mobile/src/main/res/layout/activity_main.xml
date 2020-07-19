@@ -19,26 +19,33 @@
         android:id="@+id/btn"
         android:text="send text to server"
         android:layout_height="wrap_content"
-        android:layout_width="wrap_content"
+        android:layout_width="fill_parent"
         android:gravity="center"/>
     <Button
         android:id="@+id/calibration_btn"
         android:text="Initial calibration"
         android:layout_height="wrap_content"
-        android:layout_width="wrap_content"
-        android:gravity="center_vertical"/>
+        android:layout_width="fill_parent"
+        android:gravity="center"/>
 
     <Button
         android:id="@+id/record_btn"
         android:text="Record Gesture"
         android:layout_height="wrap_content"
-        android:layout_width="wrap_content"
-        android:gravity="center_vertical"/>
+        android:layout_width="fill_parent"
+        android:gravity="center"/>
+
+    <Button
+        android:id="@+id/stop_record_btn"
+        android:text="Stop Recording Gesture"
+        android:layout_height="wrap_content"
+        android:layout_width="fill_parent"
+        android:gravity="center"/>
 
     <EditText
         android:id="@+id/gesture_txt"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        tools:text="Placeholder "/>
+        tools:text="Placeholder " />
 
 </LinearLayout>
