@@ -2,8 +2,10 @@ package bach.jianxu.watchsense;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 
 import android.content.ServiceConnection;
@@ -14,9 +16,14 @@ import android.os.Messenger;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -38,12 +45,39 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final EditText gestureTxt = findViewById(R.id.gesture_txt);
         Button recordBtn = findViewById(R.id.record_btn);
         recordBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                recordGestures(gestureTxt.getText() != null ? gestureTxt.getText().toString() : "default");
+                AlertDialog.Builder alertDialog = new AlertDialog.Builder(MainActivity.this);
+                alertDialog.setTitle("Gesture Saving");
+                alertDialog.setMessage("Enter the name of the gesture, and then start your gesture:");
+                final EditText input = new EditText(MainActivity.this);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.MATCH_PARENT);
+                input.setLayoutParams(lp);
+                alertDialog.setView(input);
+                /* This Save button does the following:
+                 * 1. Ask users to input the name of the gesture;
+                 * 2. Users should perform a screen gesture, after pressing 'Save' Button,
+                 * */
+                alertDialog.setPositiveButton("Save",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                String gestureName = input.getText().toString();
+                                recordGestures(gestureName != null ? gestureName : "default");
+                            }
+                        });
+
+                alertDialog.setNegativeButton("Cancel",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.cancel();
+                            }
+                        });
+                alertDialog.show();
+                Toast.makeText(MainActivity.this, "Gesture saved." ,Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -79,6 +113,11 @@ public class MainActivity extends Activity {
     }
 
     // TODO: should support more shaking gestures, more than just screen touching
+
+    /**
+     * This function just support recording screen touching/swiping gestures
+     * @param gestureName: the name of the recorded screen gesture, will be used for metaprogram
+     */
     private void recordGestures(String gestureName) {
         if (Shell.isSuAvailable()) {
             String fname = "/sdcard/temp/recorded_gesture_"
