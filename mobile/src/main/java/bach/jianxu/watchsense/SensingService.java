@@ -502,6 +502,14 @@ public class SensingService extends Service implements
                         } else if (name.equalsIgnoreCase("z-calibrate")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
                             meta.data.get(lastSensor).add(2, Double.parseDouble(text));
+
+                        } else if (name.equalsIgnoreCase("from")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
+                            meta.mappingFrom.add(text);
+
+                        } else if (name.equalsIgnoreCase("to")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
+                            meta.mappingTo.add(text);
                         }
                         break;
                     default:

@@ -16,21 +16,15 @@ import android.os.Messenger;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.PopupWindow;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-
 import java.util.ArrayList;
-import java.util.Arrays;
-
 import static java.util.Arrays.asList;
 
 public class MainActivity extends Activity {
@@ -81,8 +75,8 @@ public class MainActivity extends Activity {
             }
         });
 
-        Button btn = findViewById(R.id.calibration_btn);
-        btn.setOnClickListener(new View.OnClickListener() {
+        Button clibrateBtn = findViewById(R.id.calibration_btn);
+        clibrateBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick() happens");
