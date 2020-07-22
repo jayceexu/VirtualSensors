@@ -1,3 +1,6 @@
+<!---isSemantcs_mapping: if 0, the mapping is only go for direct mapping
+if 1: the mapping should be mapped based on semantics meaning>
+
 <metaprogram>
 <app>
 	<appname>com.ffgames.racingincar</appname>
@@ -14,6 +17,7 @@
 	<x-calibrate>0</x-calibrate>
 	<y-calibrate>9</y-calibrate>
 	<z-calibrate>0</z-calibrate>
+	<isSemanticsMapping>1</isSemanticsMapping>
 </app>
 <mapping>
 	<from>left</from>
