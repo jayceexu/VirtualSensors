@@ -65,6 +65,7 @@ public class SensingService extends Service implements
     private static SensorManager mSensorManager;
     private LinkedBlockingQueue<String> mQueue = new LinkedBlockingQueue<>(100);
 
+    private static final String METAPROGRAM_FILENAME = "metaprogram.xml";
     private static final String MESSAGE = "/message";
     private static int id = 1;
     private static Sensor mSensor;
@@ -451,7 +452,7 @@ public class SensingService extends Service implements
             File SDCardRoot = Environment.getExternalStorageDirectory()
                     .getAbsoluteFile();
             File myDir = new File(SDCardRoot.getAbsolutePath() + "/temp/");
-            File file = new File(myDir, "config.xml");
+            File file = new File(myDir, METAPROGRAM_FILENAME);
 
             InputStream is = new FileInputStream(file.getPath());
 
