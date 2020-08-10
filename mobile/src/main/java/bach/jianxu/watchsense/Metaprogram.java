@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class Metaprogram {
-
-    // TODO: reshaping all of this
     public static String TAG = "metaprogram";
     public String app_name;
 

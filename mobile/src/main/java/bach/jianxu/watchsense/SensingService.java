@@ -141,6 +141,7 @@ public class SensingService extends Service implements
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case 1:
+
                     ArrayList<ArrayList<Double>> phone = readData("phone.data");
                     Log.i(TAG, "Handling message from the Activity " + phone.size());
 
@@ -349,6 +350,7 @@ public class SensingService extends Service implements
                 //mCoordinates.set(0, x-d);
                 //mCoordinates.set(1, y-d);
                 if (Shell.isSuAvailable()) {
+                    // TODO: improve this line to add metaprogram part
                     String command = "/data/local/tmp/mysendevent /dev/input/event1 /sdcard/temp/recorded_touch_events.txt";
                     Log.d(TAG, "Command is: " + command);
                     Shell.runCommand(command);
@@ -616,7 +618,6 @@ public class SensingService extends Service implements
                     vThread.start();
                 }
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
