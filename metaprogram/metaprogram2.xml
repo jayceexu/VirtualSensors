@@ -4,16 +4,10 @@ i.e., mapping ambient light sensor data to screen-touch gestures(phone)
 -->
 
 <metaprogram>
-<appname>YouTube</appname>
-	<sensor> 
-		<sensor_type_from>accel</sensor_type_from>
-		<sensor_type_from>ambient_light</sensor_type_from>
-		<sensor_type_to>touch</sensor_type_to>
-		<sensor_type_to>proximity</sensor_type_to> 
-		<semantics>
-			<semantics_from>left</semantics_from>
-			<semantics_to>SwipeA</semantics_to> 
-		</semantics>
-		<freq>UI</freq> 
-	</sensor>
+	<appname>YouTube</appname>
+	<sensor_type_from>accel</sensor_type_from>
+	<sensor_type_to>touch</sensor_type_to>
+	<semantics_from>left</semantics_from>
+	<semantics_to>SwipeA</semantics_to> 
+	<freq>UI</freq> 
 </metaprogram>

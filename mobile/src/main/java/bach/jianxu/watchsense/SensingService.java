@@ -193,9 +193,7 @@ public class SensingService extends Service implements
                         continue;
                     if (msg.contains("heart")) {
                         String configEcho = "Metaprogram config ";
-                        for (String m : metaprograms.get(0).sensors) {
-                            configEcho += m + ", ";
-                        }
+                        configEcho += metaprograms.get(0).sensor_type_from + ", ";
                         sendMessage(MESSAGE, "echo back of heart beats, " + configEcho);
                         Log.i(TAG, "Sending echo messages with configs: " + configEcho);
                         continue;
@@ -460,7 +458,6 @@ public class SensingService extends Service implements
             parser.setInput(is, null);
             int eventType = parser.getEventType();
             String text = "";
-            String lastSensor = "";
             while (eventType != XmlPullParser.END_DOCUMENT) {
                 String name = parser.getName();
                 switch (eventType) {
@@ -474,43 +471,29 @@ public class SensingService extends Service implements
                             Metaprogram metaprogram = new Metaprogram();
                             metaprogram.app_name = text;
                             metaprograms.add(metaprogram);
-                        } else if (name.equalsIgnoreCase("op")) {
+                        } else if (name.equalsIgnoreCase("sensor_type_from")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.op = text;
+                            meta.sensor_type_from = text;
 
-                        } else if (name.equalsIgnoreCase("orientation")) {
+                        } else if (name.equalsIgnoreCase("sensor_type_to")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.orientation = text;
+                            meta.sensor_type_to = text;
 
-                        } else if (name.equalsIgnoreCase("sensor_type")) {
+                        } else if (name.equalsIgnoreCase("semantics_from")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.sensors.add(text);
-                            lastSensor = text;
-                            meta.data.put(lastSensor, new ArrayList<Double>());
+                            meta.semantics_from = text;
+
+                        } else if (name.equalsIgnoreCase("semantics_to")) {
+                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
+                            meta.semantics_to = text;
 
                         } else if (name.equalsIgnoreCase("freq")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.freqs.put(lastSensor, Integer.parseInt(text));
+                            meta.freq = text;
 
-                        } else if (name.equalsIgnoreCase("x-calibrate")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size()-1);
-                            meta.data.get(lastSensor).add(0, Double.parseDouble(text));
-
-                        } else if (name.equalsIgnoreCase("y-calibrate")) {
+                        } else if (name.equalsIgnoreCase("override")) {
                             Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            meta.data.get(lastSensor).add(1, Double.parseDouble(text));
-
-                        } else if (name.equalsIgnoreCase("z-calibrate")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            meta.data.get(lastSensor).add(2, Double.parseDouble(text));
-
-                        } else if (name.equalsIgnoreCase("from")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            meta.mappingFrom.add(text);
-
-                        } else if (name.equalsIgnoreCase("to")) {
-                            Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
-                            meta.mappingTo.add(text);
+                            meta.isOverride = text.equalsIgnoreCase("yes");
                         }
                         break;
                     default:
