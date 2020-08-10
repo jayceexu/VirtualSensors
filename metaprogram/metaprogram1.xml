@@ -1,6 +1,8 @@
 <!---
 This is an example for using proximity sensor (watch) to replace ambient light sensor (on the phone)
-<override> means either needs extra Java function to customize the sensor behavior in fine granularity>
+<override> means either needs extra Java function to customize the sensor behavior in fine granularity
+-->
+
 
 <metaprogram>
 	<appname>WaveLock</appname>

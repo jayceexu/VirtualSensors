@@ -1,7 +1,7 @@
 <!---
 This is an example for mapping sensor data based on their semantics meanings. 
 i.e., mapping ambient light sensor data to screen-touch gestures(phone)
->
+-->
 
 <metaprogram>
 <appname>YouTube</appname>
