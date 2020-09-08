@@ -117,7 +117,6 @@ public class SensingService extends Service implements
         mThread.start();
         mServerThread = new SocketServerThread();
         mServerThread.start();
-
         loadMetaprogram();
         mMotionDetector = new MotionDetector(this, gestureListener);
 
@@ -247,38 +246,61 @@ public class SensingService extends Service implements
 
             // This is for deep-customization
             watchData[0] = x; watchData[1] = y; watchData[2] = z;
-            func.onSensorOverride(watchData);
-
-            // String calibratedMsg = String.format("%f,%f,%f,",x, y, z);
-            // Log.i(TAG, "applyMetaprogram " + calibratedMsg);
-            // return calibratedMsg;
-
-            // TODO: add recognition part
-//            if (!mInitCoordinate) {
-//                mInitCoordinate = true;
-//                mCoordinates.set(0, x);
-//                mCoordinates.set(1, y);
-//                mCoordinates.set(2, z);
-//            }
-//            synchronized (mMotionDetector.recordingData) {
-//                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)x / mMotionDetector.DATA_NORMALIZATION_COEF;
-//                mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)y / mMotionDetector.DATA_NORMALIZATION_COEF;
-//                //recordingData[dataPos++] = event.values[2] / DATA_NORMALIZATION_COEF;
-//                if (mMotionDetector.dataPos >= mMotionDetector.recordingData.length) {
-//                    mMotionDetector.dataPos = 0;
-//                }
-//            }
-//            // run recognition if recognition thread is available
-//            if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
-
-
             /**
-             * For rotation
+              * When the override is true in metaprogram, apply deep override
+              *
              */
-//            ArrayList<Double> res = applyAraniMatrix(x, y, z);
-//            if (res.size() == 3) {
-//                msg = msgs[0] + "," + res.get(0) + "," + res.get(1) + "," + res.get(2) + ",";
-//            }
+            if (meta.isOverride) {
+                watchData = func.onSensorOverride(watchData);
+            }
+
+            /* TODO: two scenarios for triggering the metaprogram
+                 1. rewriting sensor data, by mapping -- Arani part
+                 2. buffering sensor data for recognition --this is un-done and needs more thoughts
+                    how much data needs buffering for recognize, this should be done for real-time
+                    e.g.,
+                    if (metaprogram.semantics_from != null)  do_something_recognition
+                    else do_something_mapping_transition
+             */
+            if (meta.sensor_type_from != null) {
+                // TODO: add recognition part
+//                if (!mInitCoordinate) {
+//                    mInitCoordinate = true;
+//                    mCoordinates.set(0, x);
+//                    mCoordinates.set(1, y);
+//                    mCoordinates.set(2, z);
+//                }
+//                synchronized (mMotionDetector.recordingData) {
+//                    mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)x / mMotionDetector.DATA_NORMALIZATION_COEF;
+//                    mMotionDetector.recordingData[mMotionDetector.dataPos++] = (float)y / mMotionDetector.DATA_NORMALIZATION_COEF;
+//                    //recordingData[dataPos++] = event.values[2] / DATA_NORMALIZATION_COEF;
+//                    if (mMotionDetector.dataPos >= mMotionDetector.recordingData.length) {
+//                        mMotionDetector.dataPos = 0;
+//                    }
+//                }
+//                // run recognition if recognition thread is available
+//                if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
+                if (meta.sensor_type_to.equals("gyro") || meta.sensor_type_to.equals("accel")) {
+                    /**
+                     * TODO: Replaying gyro/accel sensor gestures
+                     */
+
+                    return msg;
+                } else {
+                    /**
+                     * TODO: Replaying any gestures other than gyro/accel sensors
+                     */
+                    return "";
+                }
+            } else {
+                /**
+                 * For rotation
+                 */
+//                ArrayList<Double> res = applyAraniMatrix(x, y, z);
+//                if (res.size() == 3) {
+//                    msg = msgs[0] + "," + res.get(0) + "," + res.get(1) + "," + res.get(2) + ",";
+//                }
+            }
             return msg;
         }
     });
@@ -350,8 +372,10 @@ public class SensingService extends Service implements
                 //mCoordinates.set(0, x-d);
                 //mCoordinates.set(1, y-d);
                 if (Shell.isSuAvailable()) {
+                    Metaprogram meta = metaprograms.get(metaprograms.size() - 1);
+                    String gesture = meta.semantics_to;
                     // TODO: improve this line to add metaprogram part
-                    String command = "/data/local/tmp/mysendevent /dev/input/event1 /sdcard/temp/recorded_touch_events.txt";
+                    String command = "/data/local/tmp/mysendevent /dev/input/event1 /sdcard/temp/recorded_" + gesture + ".txt";
                     Log.d(TAG, "Command is: " + command);
                     Shell.runCommand(command);
                 }
