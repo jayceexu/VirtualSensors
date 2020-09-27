@@ -125,7 +125,6 @@ public class SensingService extends Service implements
         } catch (Exception e) {
             e.printStackTrace();
         }
-        Log.i(TAG, "Creating..........");
         super.onCreate();
     }
 
@@ -139,7 +138,7 @@ public class SensingService extends Service implements
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-                case 1:
+                case MainActivity.CALIBRATE_MOTION_SESNOR:
 
                     ArrayList<ArrayList<Double>> phone = readData("phone.data");
                     Log.i(TAG, "Handling message from the Activity " + phone.size());
@@ -212,7 +211,7 @@ public class SensingService extends Service implements
         private void sendMsgToLocalServer(String msg) {
             try {
                 if (msg != null) {
-                    Log.d("XUJAY_TCP", "poping up the message " + msg + ", size:" + mLocal.size());
+                    Log.d(TAG, "poping up the message " + msg + ", size:" + mLocal.size());
                     mSocket = new Socket("127.0.0.1", 14400);
                     mOut = mSocket.getOutputStream();
                     mOutput = new PrintWriter(mOut);
@@ -239,9 +238,9 @@ public class SensingService extends Service implements
             String typeStr = headers[0];
             if (!typeStr.contains("accel")) return msg;
 
-            double x = Double.parseDouble(headers[1]);// + meta.data.get(typeStr).get(0);
-            double y = Double.parseDouble(msgs[1]);// + meta.data.get(typeStr).get(1);
-            double z = Double.parseDouble(msgs[2]);// + meta.data.get(typeStr).get(2);
+            double x = Double.parseDouble(msgs[1]);
+            double y = Double.parseDouble(msgs[2]);
+            double z = Double.parseDouble(msgs[3]);
             Double watchData[] = new Double[3];
 
             // This is for deep-customization
@@ -262,6 +261,7 @@ public class SensingService extends Service implements
                     if (metaprogram.semantics_from != null)  do_something_recognition
                     else do_something_mapping_transition
              */
+
             if (meta.sensor_type_from != null) {
                 // TODO: add recognition part
 //                if (!mInitCoordinate) {
@@ -280,26 +280,30 @@ public class SensingService extends Service implements
 //                }
 //                // run recognition if recognition thread is available
 //                if (mMotionDetector.recognSemaphore.hasQueuedThreads()) mMotionDetector.recognSemaphore.release();
-                if (meta.sensor_type_to.equals("gyro") || meta.sensor_type_to.equals("accel")) {
+
+
+                if (meta.sensor_type_to.equals(meta.sensor_type_from)
+                        && (meta.sensor_type_to.equals("gyro") || meta.sensor_type_to.equals("accel"))) {
+                    /**
+                     * Mapping the same motion sensor of gyro or accel
+                     * */
+                    ArrayList<Double> res = applyAraniMatrix(x, y, z);
+                    if (res.size() == 3) {
+                        msg = msgs[0] + "," + res.get(0) + "," + res.get(1) + "," + res.get(2) + ",";
+                        Log.d(TAG, "Applying rotation matrix. " + msg);
+                    }
+
+                } else if (meta.sensor_type_to.equals("gyro") || meta.sensor_type_to.equals("accel")) {
                     /**
                      * TODO: Replaying gyro/accel sensor gestures
                      */
 
-                    return msg;
                 } else {
                     /**
                      * TODO: Replaying any gestures other than gyro/accel sensors
                      */
-                    return "";
+
                 }
-            } else {
-                /**
-                 * For rotation
-                 */
-//                ArrayList<Double> res = applyAraniMatrix(x, y, z);
-//                if (res.size() == 3) {
-//                    msg = msgs[0] + "," + res.get(0) + "," + res.get(1) + "," + res.get(2) + ",";
-//                }
             }
             return msg;
         }
@@ -338,9 +342,10 @@ public class SensingService extends Service implements
 
     private ArrayList<Double> applyAraniMatrix(double x, double y, double z) {
         ArrayList<Double> res = new ArrayList<>();
-
         ArrayList<Double> input = new ArrayList<>();
         input.add(x); input.add(y); input.add(z);
+
+        if (mLRx == null || mLRy == null || mLRz == null) return input;
 
         double nx = mLRx.predict(input);
         double ny = mLRy.predict(input);
@@ -446,7 +451,7 @@ public class SensingService extends Service implements
         try {
             if (empty) {
                 mQueue.put(message);
-                Log.i("XUJAY_TCP", "Adding msg to the queue, queue size: " + mQueue.size());
+                Log.i(TAG, "Adding msg to the queue, queue size: " + mQueue.size());
             }
             if (mQueue.size() >= 1) {
                 empty = false;

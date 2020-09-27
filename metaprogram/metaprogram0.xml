@@ -1,0 +1,12 @@
+<!---
+This is an example for using proximity sensor (watch) to replace ambient light sensor (on the phone)
+<override> means either needs extra Java function to customize the sensor behavior in fine granularity
+-->
+
+
+<metaprogram>
+	<appname>CarRace</appname>
+	<sensor_type_from>accel</sensor_type_from>
+	<sensor_type_to>accel</sensor_type_to>
+	<freq>UI</freq>
+</metaprogram>

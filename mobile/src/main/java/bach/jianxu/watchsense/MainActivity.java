@@ -31,6 +31,8 @@ public class MainActivity extends Activity {
 
     private static String TAG = "WatchSense";
     public static final int PERMISSIONS_REQUEST_CODE = 1;
+    public static final int CALIBRATE_MOTION_SESNOR = 1;
+
     private SensingService mSensingService = new SensingService();
     private Messenger mService;
     private boolean mBound;
@@ -80,20 +82,8 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick() happens");
-                ArrayList<ArrayList<Double>> X = new ArrayList<>();
-                X.add(new ArrayList<>(asList(110.0, 40.0, 50.0)));
-                X.add(new ArrayList<>(asList(120.0, 30.0, 40.0)));
-                X.add(new ArrayList<>(asList(100.0, 20.0, 60.0)));
-                X.add(new ArrayList<>(asList(90.0, 0.0, 30.0)));
-                X.add(new ArrayList<>(asList(80.0, 10.0, 20.0)));
 
-                ArrayList<Double> Y = new ArrayList<>(asList(100.0, 90.0, 80.0, 70.0, 60.0));
-                LinearRegression mlr = new LinearRegression(X, Y);
-                mlr.fit();
-                ArrayList<Double> parameter = new ArrayList<>(asList(110.0, 40.0, 50.0));
-                Log.d(TAG, "result " + mlr.predict(parameter));
-
-                Message msg = Message.obtain(null, 1, 0, 0);
+                Message msg = Message.obtain(null, CALIBRATE_MOTION_SESNOR, 0, 0);
                 try {
                     mService.send(msg);
                 } catch (Exception e) {e.printStackTrace();}
